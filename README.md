@@ -1,21 +1,23 @@
-# Explainers
+<div align="center">
 
-Interactive, visual explainers. Each one is a single self-contained HTML page: minimal text, mostly things you can see, drag and hear.
+# Things, made visible
 
-| Explainer | What it covers |
-|---|---|
-| [Sound, made visible](sound/) | Vibration → waveform → harmonics → Fourier transform → spectrogram → mel spectrogram. Background for speech and audio models (text-to-speech and similar). |
+**Interactive explainers. Little text, mostly pictures you can play with.**
 
-## Run locally
+</div>
+
+| | Explainer | In one line |
+|:-:|---|---|
+| 01 | [**Sound**](sound/) | From a shaking object to a mel spectrogram, in ten small steps. |
+
+## Run
 
 ```bash
 python3 -m http.server 4173
 ```
 
-Then open http://localhost:4173/. Each page also opens by double-clicking its `index.html`, except features that need a real web address (the microphone step in the sound explainer).
+Open http://localhost:4173
 
-## Adding an explainer
+## Add one
 
-1. Create a folder with a short name, for example `attention/`.
-2. Put a self-contained `index.html` in it (no build step, no dependencies).
-3. Add a card for it in the root `index.html` and a row in the table above.
+A new folder with a single self-contained `index.html`, plus a card on the landing page and a row above. No build step, no dependencies.
