@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Explainers</title>
+<style>
+:root{--bg:#0c0e13;--panel:#12151c;--line:#242a37;--text:#ece8df;--muted:#8c93a3;--a:#ffb454;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--serif:ui-serif,"New York","Iowan Old Style",Palatino,Georgia,serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:900px;margin:0 auto;padding:88px 20px}
+h1{font:500 clamp(40px,8vw,72px)/1 var(--serif);letter-spacing:-.02em;margin:0 0 14px}
+h1 em{font-style:italic;color:var(--a)}
+p.lede{color:var(--muted);margin:0 0 40px;font-size:18px;max-width:44ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+a.card{display:block;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;transition:border-color .15s}
+a.card:hover,a.card:focus-visible{border-color:var(--a);outline:none}
+.card .n{font:600 12px var(--mono);color:var(--a);letter-spacing:.14em}
+.card h2{font:500 26px/1.15 var(--serif);margin:8px 0}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.card .path{display:block;margin-top:14px;font:11px var(--mono);color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Things, made <em>visible</em>.</h1>
+  <p class="lede">Interactive explainers. Little text, mostly pictures you can play with.</p>
+  <div class="grid">
+    <a class="card" href="sound/">
+      <span class="n">01</span>
+      <h2>Sound</h2>
+      <p>From a shaking object to a mel spectrogram, in ten small steps. Background for speech and audio models.</p>
+      <span class="path">waveform · Fourier transform · spectrogram · mel</span>
+    </a>
+  </div>
+</main>
+</body>
+</html>

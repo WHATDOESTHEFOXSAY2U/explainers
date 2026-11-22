@@ -1,0 +1,1590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Sound, made visible</title>
+<style>
+:root{
+  --bg:#0c0e13; --panel:#12151c; --line:#242a37; --text:#ece8df; --muted:#8c93a3;
+  --a:#ffb454; --ok:#7dd87d; --bad:#ff6b6b;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --serif:ui-serif,"New York","Iowan Old Style",Palatino,Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --fs-micro:11px; --fs-ui:12px; --fs-cap:14px; --fs-body:16px; --fs-lead:18px; --fs-sub:20px;
+  --r-lg:16px; --r-md:10px; --r-pill:99px; --surface:#1b202b; --line-2:#3a4356; --lede:#a9afbd;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scrollbar-color:#2a3140 var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font:var(--fs-body)/1.5 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:rgba(255,180,84,.3);color:var(--text)}
+main,header.hero,footer{max-width:900px;margin:0 auto;padding:0 20px}
+canvas{display:block;width:100%;border-radius:8px}
+
+/* hero */
+.hero{padding-top:clamp(64px,12vh,128px)}
+.hero h1{font:500 clamp(40px,8vw,76px)/1 var(--serif);letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance}
+.hero h1 em{font-style:italic;color:var(--a)}
+.hero p{color:var(--lede);margin:0 0 40px;max-width:40ch;font-size:var(--fs-lead);line-height:1.5}
+#hero{height:140px;margin:0 -20px;width:calc(100% + 40px);border-radius:0}
+.path{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:36px;font:var(--fs-ui) var(--mono)}
+.path a{color:var(--text);text-decoration:none;border:1px solid var(--line);border-radius:var(--r-pill);padding:5px 11px;white-space:nowrap;transition:border-color .15s,color .15s}
+.path a:hover{border-color:var(--a);color:var(--a)}
+.path a span{color:var(--a);margin-right:7px;font-size:10px;letter-spacing:.08em}
+
+/* steps */
+.step{margin-top:72px;scroll-margin-top:32px}
+.step + .step{margin-top:28px}
+.num{display:flex;align-items:center;gap:10px;font:600 var(--fs-micro) var(--mono);color:var(--a);letter-spacing:.16em}
+.num::before{content:"";width:18px;height:1px;background:var(--a)}
+.num::after{content:"/ 10";color:var(--muted);font-weight:400;letter-spacing:.1em}
+h2{font:500 clamp(27px,4.4vw,40px)/1.12 var(--serif);letter-spacing:-.01em;margin:10px 0 14px;max-width:26ch;text-wrap:balance}
+h2 em{font-style:normal;color:var(--a)}
+.lede{color:var(--lede);font-size:var(--fs-lead);line-height:1.5;margin:0 0 28px;max-width:56ch;text-wrap:pretty}
+.lede b{color:var(--text);font-weight:600}
+.sub{display:flex;align-items:baseline;gap:10px;font:500 var(--fs-sub)/1.2 var(--serif);letter-spacing:-.005em;color:var(--text);margin:40px 0 12px}
+.sub span{font:600 var(--fs-micro) var(--mono);color:var(--a);letter-spacing:.1em}
+.lede + .sub{margin-top:28px}
+.viz{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 12px 32px -18px rgba(0,0,0,.6)}
+.viz + .viz{margin-top:16px}
+.cap{font:var(--fs-cap)/1.55 var(--sans);color:var(--muted);max-width:68ch}
+.cap b{color:var(--text);font-weight:600}
+.note{padding-top:12px;border-top:1px solid var(--line);max-width:none}
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;font:var(--fs-ui) var(--mono);color:var(--muted)}
+.controls label{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.controls output{color:var(--text);min-width:4ch;font-variant-numeric:tabular-nums}
+@media (max-width:600px){#fq9o{flex-basis:100%}}
+.controls .lab{text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+.controls .hint{margin-left:auto;font-size:var(--fs-micro);opacity:.8}
+.controls .play{margin-right:4px}
+.bridge{text-align:center;color:var(--muted);font:italic var(--fs-sub)/1.3 var(--serif);margin:56px auto 0;max-width:30ch;text-wrap:balance}
+.bridge::after{content:"";display:block;width:1px;height:40px;margin:14px auto 0;background:linear-gradient(var(--a),transparent)}
+
+/* one vertical rhythm inside every panel */
+.viz > *{margin-top:0;margin-bottom:0}
+.viz > * + *{margin-top:14px}
+.viz > .cap + canvas,.viz > .cap + .mixer{margin-top:12px}
+.viz > .mixer + canvas{margin-top:0}
+.viz > .axes{margin-top:10px}
+.viz > .sumline{margin-top:6px}
+.viz > .controls + .controls{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+
+button{font:var(--fs-ui) var(--mono);color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-pill);padding:7px 14px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s,color .15s}
+button:hover{border-color:var(--line-2);background:#212736}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,a:focus-visible,input:focus-visible,canvas:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+button.play{border-color:var(--a);color:var(--a);min-width:96px;text-align:center}
+button.play:hover{background:rgba(255,180,84,.1);border-color:var(--a)}
+button.on,button[aria-pressed="true"]{background:var(--a);border-color:var(--a);color:#16110a}
+button.on:hover,button[aria-pressed="true"]:hover{background:#ffc470;border-color:#ffc470}
+#st9hz,#st9mel{min-width:154px} #mic{min-width:112px}
+
+/* option groups: segmented, so "selected" never looks like "playing" */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r-pill);padding:2px;background:#0f1218}
+.seg button{border:0;background:transparent;padding:5px 12px;color:var(--muted)}
+.seg button:hover{background:transparent;color:var(--text)}
+.seg button[aria-pressed="true"],.seg button[aria-pressed="true"]:hover{background:#262d3b;color:var(--text)}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:150px;height:18px;margin:0;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line-2);border-radius:2px}
+input[type=range]::-moz-range-track{height:2px;background:var(--line-2);border-radius:2px}
+input[type=range]::-moz-range-progress{height:2px;background:var(--a);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-6px;border-radius:50%;background:var(--a);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--a)}
+input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:var(--a);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--a)}
+input[type=range]:hover::-webkit-slider-thumb{box-shadow:0 0 0 1px var(--a),0 0 0 5px rgba(255,180,84,.18)}
+
+/* two-up listen comparison */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.viz.duo > * + *{margin-top:0}
+.duo button{padding:18px 14px;border-radius:12px;font-size:var(--fs-cap);margin:0}
+.duo .cap{grid-column:1/-1;margin-top:2px;text-align:center;max-width:none}
+
+/* canvas heights */
+#c1{height:240px} #c2{height:380px} #c3{height:260px} #c4{height:340px}
+#c5s{height:120px} #c5r{height:240px} #c5sum{height:170px}
+#c6a{height:230px} #c6{height:350px} #c6k{height:510px} #c6h{height:400px} #c6s{height:170px} #c6d{height:310px} #c7{height:250px}
+#c8{height:456px;touch-action:pan-y;cursor:ew-resize} #c9s{height:170px} #c9m{height:260px} #c9w{height:300px;cursor:pointer} #c9c{height:300px} #c10{height:430px}
+.mixer{display:grid;grid-template-columns:220px minmax(0,1fr);gap:0 16px}
+.mixer .rows{display:grid;grid-template-rows:repeat(6,40px);grid-template-columns:minmax(0,1fr);min-width:0}
+.hrow{display:flex;align-items:center;gap:8px;font:var(--fs-micro) var(--mono);font-variant-numeric:tabular-nums;color:var(--muted);min-width:0}
+.hrow span{width:92px;flex:none;white-space:nowrap;color:var(--text)}
+.hrow em{font-style:normal;color:var(--muted)}
+.hrow input{flex:1 1 0;min-width:0;width:0}
+
+.uses{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;padding:14px 0 0;border-top:1px solid var(--line);list-style:none;font:var(--fs-micro)/1.45 var(--mono);color:var(--muted)}
+.uses li{border-left:1px solid var(--line);padding:2px 12px}
+.uses li:first-child{border-left:0;padding-left:0}
+.uses b{display:block;color:var(--text);font:500 13px var(--sans);margin-bottom:3px}
+
+.sumline{font:var(--fs-ui)/1.9 var(--mono);color:var(--muted);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.calc{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px}
+.calc div{position:relative;border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px;font:var(--fs-micro) var(--mono);color:var(--muted);background:#0f1218}
+.calc div + div::before{content:"→";position:absolute;left:-17px;top:50%;transform:translateY(-50%);color:var(--a)}
+.calc div:last-child{border-color:var(--a)}
+.calc div:last-child b{color:var(--a)}
+.calc b{display:block;font:500 24px/1.2 var(--serif);color:var(--text);margin-top:4px;font-variant-numeric:tabular-nums}
+.stepn{font-style:normal;font-weight:600;color:var(--a);margin-right:8px}
+.verdict{font:500 var(--fs-lead)/1.3 var(--serif);color:var(--text);padding-left:12px;border-left:2px solid var(--a)}
+
+.axes{font:var(--fs-micro)/1.6 var(--mono);color:var(--muted);max-width:86ch}
+.axes b{color:var(--text);font-weight:500}
+
+/* rail */
+.rail{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:none;flex-direction:column;gap:2px;font:10px var(--mono);z-index:5}
+.rail a{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--muted);text-decoration:none;padding:5px 4px;opacity:.7;transition:color .15s,opacity .15s}
+.rail a::after{content:"";width:10px;height:2px;border-radius:2px;background:var(--line-2);transition:width .2s,background .2s}
+.rail a:hover{color:var(--text);opacity:1}
+.rail a.cur{color:var(--a);opacity:1}
+.rail a.cur::after{width:22px;background:var(--a)}
+@media (min-width:1060px){.rail{display:flex}}
+
+footer{margin:112px auto 0;padding-top:40px;padding-bottom:96px;border-top:1px solid var(--line)}
+.recap{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 8px;font:var(--fs-ui) var(--mono)}
+.recap span{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.recap b{font-weight:500;border:1px solid var(--line);border-radius:var(--r-md);padding:8px 12px;background:var(--panel)}
+.recap span:last-child b{border-color:var(--a);color:var(--a)}
+.recap i{font-style:normal;color:var(--muted);font-size:var(--fs-micro)}
+.recap i::after{content:" →";color:var(--a)}
+
+@media (max-width:600px){
+  main,header.hero,footer{padding-left:16px;padding-right:16px}
+  .hero{padding-top:56px} .hero p{font-size:var(--fs-body);margin-bottom:28px}
+  #hero{height:90px;margin:0 -16px;width:calc(100% + 32px)}
+  .step{margin-top:56px} h2{margin:8px 0 12px} .lede{font-size:var(--fs-body);margin-bottom:20px}
+  .viz{padding:14px;border-radius:12px} .sub{font-size:18px;margin:32px 0 10px}
+  .cap{font-size:13px}
+  button{padding:10px 14px} .seg{flex-wrap:wrap;max-width:100%;border-radius:20px} .seg button{padding:8px 10px}
+  .controls{gap:10px 12px} .controls label{flex:1 1 100%} .controls label input[type=range]{flex:1;width:auto;min-width:0}
+  .controls .hint{margin-left:0;flex-basis:100%}
+  .mixer{grid-template-columns:130px minmax(0,1fr);gap:0 12px} .hrow span{width:22px} .hrow em{display:none}
+  .calc{grid-template-columns:1fr 1fr;gap:10px} .calc div + div::before{display:none}
+  .uses{grid-template-columns:1fr;gap:8px} .uses li{border-left:0;padding:0;display:flex;gap:10px;align-items:baseline} .uses b{flex:none;width:118px;margin:0}
+  .duo button{padding:16px 8px;font-size:var(--fs-ui)}
+  #c7{height:420px} #c9c{height:520px} #c10{height:680px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<nav class="rail" id="rail" aria-label="Steps"></nav>
+
+<header class="hero">
+  <h1>Sound, made <em>visible</em>.</h1>
+  <p>Ten small steps from a shaking object to a mel spectrogram.</p>
+  <canvas id="hero" aria-hidden="true"></canvas>
+  <nav class="path" aria-label="Contents">
+    <a href="#s1"><span>01</span>vibration</a><a href="#s2"><span>02</span>waveform</a><a href="#s3"><span>03</span>frequency</a><a href="#s4"><span>04</span>adding waves</a><a href="#s5"><span>05</span>harmonics</a><a href="#s6"><span>06</span>Fourier transform</a><a href="#s7"><span>07</span>two pictures</a><a href="#s8"><span>08</span>spectrogram</a><a href="#s9"><span>09</span>mel spectrogram</a><a href="#s10"><span>10</span>your voice</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="step" id="s1">
+  <span class="num">01</span>
+  <h2>Something <em>shakes</em>. It shoves the air.</h2>
+  <p class="lede">The air only wobbles in place. The <b>squeeze</b> travels. That is sound.</p>
+  <div class="viz">
+    <canvas id="c1" role="img" aria-label="Air particles pushed by a vibrating surface; a band of squeezed air travels to the right"></canvas>
+    <div class="controls"><button id="b1">Stop shaking</button><span class="hint">watch the last squeeze leave</span></div>
+  </div>
+  <p class="bridge">How do you draw that?</p>
+</section>
+
+<section class="step" id="s2">
+  <span class="num">02</span>
+  <h2>Stand in one spot. <em>Plot the squeeze</em> over time.</h2>
+  <p class="lede">Squeezed: up. Stretched: down. That line is a <b>waveform</b>.</p>
+  <div class="viz">
+    <canvas id="c2" role="img" aria-label="Air pressure at a microphone plotted over time, tracing a waveform"></canvas>
+    <div class="controls"><button id="b2">Stop shaking</button></div>
+  </div>
+  <p class="bridge">A simple wave has only two knobs.</p>
+</section>
+
+<section class="step" id="s3">
+  <span class="num">03</span>
+  <h2>How <em>fast</em>. How <em>big</em>.</h2>
+  <p class="lede">Wiggles per second = <b>frequency</b> = pitch. Height = <b>amplitude</b> = loudness.</p>
+  <div class="viz">
+    <canvas id="c3" role="img" aria-label="One sine wave whose frequency and amplitude follow the two sliders"></canvas>
+    <div class="controls">
+      <button class="play" id="p3">▶ Listen</button>
+      <label>frequency <input type="range" id="f3" min="100" max="1000" step="10" value="200"></label>
+      <label>amplitude <input type="range" id="a3" min="0" max="1" step="0.01" value="0.7"></label>
+    </div>
+  </div>
+  <p class="bridge">What if two waves share the same air?</p>
+</section>
+
+<section class="step" id="s4">
+  <span class="num">04</span>
+  <h2>Waves just <em>add</em>.</h2>
+  <p class="lede">Lined up, they double. Opposite, they cancel into silence.</p>
+  <div class="viz">
+    <canvas id="c4" role="img" aria-label="Wave A, wave B and their sum; shifting B makes the sum grow or cancel"></canvas>
+    <div class="controls">
+      <button class="play" id="p4">▶ Listen</button>
+      <label>shift B <input type="range" id="ph4" min="0" max="360" step="5" value="90"></label>
+      <button id="in4">Lined up</button><button id="out4">Opposite</button>
+    </div>
+  </div>
+  <p class="bridge">Real instruments stack many waves at once.</p>
+</section>
+
+<section class="step" id="s5">
+  <span class="num">05</span>
+  <h2><em>Harmonics</em>: one note is a stack.</h2>
+  <p class="lede">A string wiggles as a whole, in halves, in thirds… all at once: 1×, 2×, 3× the base frequency.</p>
+  <div class="viz"><canvas id="c5s" role="img" aria-label="A string vibrating as a whole, in halves, in thirds and in quarters"></canvas></div>
+  <div class="viz">
+    <p class="cap"><b>Mix them.</b> Same pitch, different recipe: flute vs violin.</p>
+    <div class="mixer">
+      <div class="rows" id="rows5"></div>
+      <canvas id="c5r" role="img" aria-label="Six harmonics drawn as separate sine waves, sized by their sliders"></canvas>
+    </div>
+    <canvas id="c5sum" role="img" aria-label="The six harmonics added into one wave"></canvas>
+    <div class="controls">
+      <button class="play" id="p5">▶ Listen</button>
+      <span class="seg"><button data-p="pure">Pure</button><button data-p="soft">Soft</button><button data-p="hollow">Hollow</button><button data-p="bright">Bright</button></span>
+    </div>
+  </div>
+  <p class="bridge">Each of those is a pure tone. Can you go backwards, from the wave to the recipe?</p>
+</section>
+
+<section class="step" id="s6">
+  <span class="num">06</span>
+  <h2><em>Fourier transform</em>: un-mix the wave.</h2>
+  <p class="lede">Hand it <b>any wave</b>. It tells you <b>which pure tones are inside, and how much of each</b>.</p>
+
+  <h3 class="sub"><span>6.1</span>What it does</h3>
+  <div class="viz">
+    <p class="cap">Like a prism splitting white light into its colours.</p>
+    <canvas id="c6a" role="img" aria-label="A wave goes into the Fourier transform; pure tones and the amplitude of each come out"></canvas>
+    <div class="controls">
+      <span class="seg"><button class="w6" data-m="one">One tone</button><button class="w6" data-m="two">Two tones</button><button class="w6" data-m="mix">Your 05 mix</button></span>
+    </div>
+  </div>
+
+  <h3 class="sub"><span>6.2</span>Ask one question</h3>
+  <div class="viz">
+    <p class="cap">“Any 440 Hz in here?” Multiply the wave by a 440 Hz test tone, then add it all up.</p>
+    <canvas id="c6" role="img" aria-label="The wave multiplied by a test tone; green and red areas add up to one amplitude"></canvas>
+    <div class="controls">
+      <label>test tone <input type="range" id="pr6" min="0.25" max="7" step="0.25" value="2"><output id="o6"></output></label>
+      <span class="seg"><button class="w6" data-m="one">One tone</button><button class="w6" data-m="two">Two tones</button><button class="w6" data-m="mix">Your 05 mix</button></span>
+    </div>
+    <p class="cap note"><b>Why that works.</b> A matching frequency rises and falls with the test tone: mostly green. Any other frequency drifts in and out of step: equal green and red, which cancel to 0.</p>
+  </div>
+
+  <h3 class="sub"><span>6.3</span>Keep score</h3>
+  <div class="viz">
+    <p class="cap">What is left after red cancels green is the <b>amplitude</b> of that frequency: <b>1.00</b> = a full-size tone, <b>0</b> = not there. That is the bar's height.</p>
+    <canvas id="c6k" role="img" aria-label="Eight test frequencies asked in turn; green minus red becomes one bar per question"></canvas>
+    <div class="controls">
+      <button class="play" id="k6play">▶ Play all 8</button>
+      <span class="seg"><button id="k6prev">◀ Previous</button><button id="k6next">Next ▶</button></span>
+    </div>
+    <div class="controls">
+      <span class="lab">mix</span>
+      <label>220 Hz <input type="range" id="k6a" min="0" max="1" step="0.05" value="1"><output id="k6ao">1.00</output></label>
+      <label>660 Hz <input type="range" id="k6b" min="0" max="1" step="0.05" value="0.5"><output id="k6bo">0.50</output></label>
+    </div>
+    <p class="cap note">You mixed in <span id="k6txt">1.00 of 220 Hz and 0.50 of 660 Hz</span>. Those are exactly the bars you get back.</p>
+  </div>
+
+  <h3 class="sub"><span>6.4</span>By hand</h3>
+  <div class="viz">
+    <p class="cap">This wave is 1 Hz at amplitude 2 plus 3 Hz at amplitude 5. Can 12 samples find that?</p>
+    <div class="controls">
+      <span class="lab">test tone</span>
+      <span class="seg"><button class="h6f" data-f="1">1 Hz</button><button class="h6f" data-f="2">2 Hz</button><button class="h6f" data-f="3">3 Hz</button><button class="h6f" data-f="4">4 Hz</button></span>
+      <span class="lab">its amplitude</span>
+      <span class="seg"><button class="h6a" data-a="1">1</button><button class="h6a" data-a="2">2</button><button class="h6a" data-a="3">3</button></span>
+    </div>
+    <canvas id="c6h" role="img" aria-label="Twelve samples of a wave, a test tone, and their products, worked by hand"></canvas>
+    <p class="cap"><b><i class="stepn">4</i>Add up all 12 products</b></p>
+    <p class="sumline" id="h6sum"></p>
+    <div class="calc">
+      <div>sum<b id="h6m1">0</b></div>
+      <div><i class="stepn">5</i>÷ 12 samples<b id="h6m2">0</b></div>
+      <div><i class="stepn">6</i>× 2<b id="h6m3">0</b></div>
+      <div><i class="stepn">7</i><span id="h6l4">÷ test amplitude</span><b id="h6m4">0</b></div>
+    </div>
+    <p class="verdict" id="h6v"></p>
+    <p class="cap note"><b>Why × 2.</b> Two matching tones multiplied average to half. <b>Why ÷ test amplitude.</b> It was multiplied into every product, so divide it back out.</p>
+  </div>
+
+  <h3 class="sub"><span>6.5</span>The spectrum</h3>
+  <div class="viz">
+    <p class="cap">More questions, finer chart. That bar chart is the <b>spectrum</b>.</p>
+    <canvas id="c6s" role="img" aria-label="The spectrum: one amplitude bar for each test frequency"></canvas>
+    <div class="controls"><button class="play" id="sw6">▶ Sweep</button></div>
+  </div>
+
+  <h3 class="sub"><span>6.6</span>What it's for</h3>
+  <div class="viz">
+    <p class="cap">Hard on the wave, easy on the bars: remove a whine.</p>
+    <canvas id="c6d" role="img" aria-label="A note with a whine, its spectrum, and the wave after the whine bar is deleted"></canvas>
+    <div class="controls">
+      <button class="play" id="p6d">▶ Listen</button>
+      <button id="rm6" aria-pressed="false">Delete the whine</button>
+    </div>
+    <ul class="uses">
+      <li><b>Tuners</b>tallest bar = the note</li>
+      <li><b>Equalisers</b>turn bars up or down</li>
+      <li><b>Noise removal</b>delete unwanted bars</li>
+      <li><b>MP3</b>drop bars you can't hear</li>
+      <li><b>Shazam, voice AI</b>recognise the bar pattern</li>
+    </ul>
+  </div>
+  <p class="bridge">One sound, two pictures.</p>
+</section>
+
+<section class="step" id="s7">
+  <span class="num">07</span>
+  <h2>Waveform shows <em>when</em>. Spectrum shows <em>what</em>.</h2>
+  <p class="lede">But a spectrum forgets the order. Reverse the tune and it doesn't notice.</p>
+  <div class="viz">
+    <canvas id="c7" role="img" aria-label="A four-note tune as a waveform and as a spectrum; reversing the notes changes only the waveform"></canvas>
+    <div class="controls">
+      <button class="play" id="p7">▶ Listen</button>
+      <button id="rev7" aria-pressed="false">Reverse the notes</button>
+    </div>
+  </div>
+  <p class="bridge">The fix: don't transform the whole thing at once.</p>
+</section>
+
+<section class="step" id="s8">
+  <span class="num">08</span>
+  <h2><em>Spectrogram</em>: slice, transform, stack.</h2>
+  <p class="lede">Slide along, slice by slice. Now you see what <b>and</b> when.</p>
+  <div class="viz">
+    <canvas id="c8" role="img" tabindex="0" aria-label="Spectrogram being built column by column from slices of the waveform. Left and right arrow keys move the slice"></canvas>
+    <div class="controls">
+      <button class="play" id="p8">▶ Listen</button>
+      <span class="seg"><button class="snd" data-s="voice">Voice</button><button class="snd" data-s="melody">Melody</button><button class="snd" data-s="sweep">Sweep</button></span>
+      <span class="hint">drag to move the slice</span>
+    </div>
+    <p class="axes">x = time · y = frequency · colour = amplitude</p>
+  </div>
+  <p class="bridge">One last tweak, for human ears.</p>
+</section>
+
+<section class="step" id="s9">
+  <span class="num">09</span>
+  <h2><em>Mel</em>: redraw the axis the way ears hear.</h2>
+  <p class="lede">Ears don't hear in Hz. The <b>mel scale</b> is a ruler where equal steps <b>sound</b> equal. A mel spectrogram is a spectrogram with its y axis on that ruler.</p>
+
+  <h3 class="sub"><span>9.1</span>Hear the problem</h3>
+  <div class="viz duo">
+    <button class="play" id="lo9">▶ 300 → 600 Hz</button>
+    <button class="play" id="hi9">▶ 5000 → 5300 Hz</button>
+    <p class="cap">Both jump by the same 300 Hz. One leaps, one barely moves.</p>
+  </div>
+
+  <h3 class="sub"><span>9.2</span>Two staircases</h3>
+  <div class="viz">
+    <p class="cap">Only the mel one sounds even.</p>
+    <canvas id="c9s" role="img" aria-label="Two rows of tones on a frequency axis: equal steps in Hz and equal steps in mel"></canvas>
+    <div class="controls">
+      <button class="play" id="st9hz">▶ Equal Hz steps</button>
+      <button class="play" id="st9mel">▶ Equal mel steps</button>
+    </div>
+  </div>
+
+  <h3 class="sub"><span>9.3</span>The mel ruler</h3>
+  <div class="viz">
+    <p class="cap">Hz in, mel out. Steep at the low end, so low frequencies get most of the ruler.</p>
+    <canvas id="c9m" role="img" aria-label="Curve converting Hz to mel, steep at low frequencies and flat at high ones"></canvas>
+    <div class="controls">
+      <label>frequency <input type="range" id="fq9" min="0" max="8000" step="50" value="1000"></label><output id="fq9o"></output>
+    </div>
+    <p class="axes">Dashed lines: equal mel steps.</p>
+  </div>
+
+  <h3 class="sub"><span>9.4</span>Bands on one slice</h3>
+  <div class="viz">
+    <p class="cap">Cut the slice's bars into bands: thin down low, wide up high. Each band's bars merge into one.</p>
+    <canvas id="c9w" role="img" aria-label="One slice's spectrum cut into mel bands, thin at low frequencies and wide at high, and the resulting band bars"></canvas>
+    <div class="controls">
+      <label>mel bands <input type="range" id="nm9" min="8" max="80" step="1" value="40"><output id="o9">40</output></label>
+      <label>band <input type="range" id="sb9" min="1" max="40" step="1" value="8"><output id="sb9o">8</output></label>
+    </div>
+  </div>
+
+  <h3 class="sub"><span>9.5</span>Every slice</h3>
+  <div class="viz">
+    <p class="cap">Each column shrinks from 513 bars to <b id="n9">40</b> bands, and the low end gets the room.</p>
+    <canvas id="c9c" role="img" aria-label="The same sound as a spectrogram and as a mel spectrogram, side by side"></canvas>
+    <div class="controls">
+      <span class="seg"><button class="snd" data-s="voice">Voice</button><button class="snd" data-s="melody">Melody</button><button class="snd" data-s="sweep">Sweep</button></span>
+    </div>
+    <p class="cap note"><b>Why bother.</b> It is what speech and music AI models are fed instead of raw sound.</p>
+  </div>
+  <p class="bridge">Now try it on your own voice.</p>
+</section>
+
+<section class="step" id="s10">
+  <span class="num">10</span>
+  <h2>Your <em>turn</em>.</h2>
+  <p class="lede">Hum. Whistle. Say “aaa–eee–ooo”. Clap.</p>
+  <div class="viz">
+    <canvas id="c10" role="img" aria-label="Live waveform, spectrum, spectrogram and mel spectrogram of the microphone"></canvas>
+    <div class="controls">
+      <button class="play" id="mic">Turn on mic</button>
+      <span class="hint" id="micmsg">nothing is recorded</span>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="recap">
+    <b>vibration</b><span><i>pressure over time</i><b>waveform</b></span><span><i>Fourier transform</i><b>spectrum</b></span><span><i>slice + stack</i><b>spectrogram</b></span><span><i>ear-shaped axis</i><b>mel spectrogram</b></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+'use strict';
+const C = { text:'#ece8df', muted:'#8c93a3', line:'#242a37', a:'#ffb454', b:'#5cc8f2', c:'#ff7eb6', ok:'#7dd87d', bad:'#ff6b6b', dark:'#07080b' };
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const SERIF = 'ui-serif, "New York", Georgia, serif';
+const LW = 2.25, LW_THIN = 1.5, PAD = 4; // one stroke width for main curves, one for secondary; left inset for headings
+const DASH = [3, 4], CURSOR = 'rgba(236,232,223,.3)', GUIDE = 'rgba(236,232,223,.12)';
+const TAU = Math.PI * 2;
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const nowS = () => performance.now() / 1000;
+
+/* ───────── scene loop ───────── */
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+const RM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const scenes = [];
+const io = new IntersectionObserver(es => {
+  for (const e of es) { const s = scenes.find(x => x.cv === e.target); if (s) s.vis = e.isIntersecting; }
+}, { rootMargin: '120px' });
+// live: false = only repainted when marked dirty (or resized); ambient = pure decoration, frozen under reduced motion
+function scene(id, draw, { live = true, ambient = false } = {}) {
+  const cv = $(id);
+  scenes.push({ cv, ctx: cv.getContext('2d'), draw, live, ambient, dirty: true, vis: false, w: 0, h: 0 });
+  io.observe(cv);
+}
+function redraw(...ids) { for (const s of scenes) if (ids.includes(s.cv.id)) s.dirty = true; }
+function frame(ms) {
+  const t = ms / 1000, d = Math.min(window.devicePixelRatio || 1, 2);
+  if (d !== DPR) { DPR = d; for (const s of scenes) s.w = 0; }
+  for (const s of scenes) {
+    if (!s.vis) continue;
+    const w = s.cv.clientWidth, h = s.cv.clientHeight;
+    if (!w || !h) continue;
+    const resized = w !== s.w || h !== s.h;
+    if (resized) { s.w = w; s.h = h; s.cv.width = Math.round(w * DPR); s.cv.height = Math.round(h * DPR); }
+    if (!s.live && !s.dirty && !resized) continue;
+    s.dirty = false; // cleared first, so a draw can ask for another frame with redraw()
+    s.ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    s.ctx.clearRect(0, 0, w, h);
+    try { s.draw(s.ctx, w, h, RM && s.ambient ? 0 : t); } catch (err) { console.error(s.cv.id, err); }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ───────── drawing helpers ───────── */
+function label(ctx, s, x, y, color = C.muted, align = 'left', font) {
+  ctx.save(); ctx.font = font || `11px ${MONO}`; ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = label.bg || '#12151c'; ctx.strokeText(s, x, y); // halo, so text stays readable over curves and guides
+  ctx.fillStyle = color; ctx.fillText(s, x, y); ctx.restore();
+}
+function line(ctx, x1, y1, x2, y2, color, wd = 1, dash) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = wd; if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+}
+function plot(ctx, fn, x0, x1, mid, amp, color, wd = LW) {
+  ctx.beginPath();
+  for (let x = x0; x <= x1; x++) { const y = mid - amp * fn((x - x0) / (x1 - x0)); x === x0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+  ctx.strokeStyle = color; ctx.lineWidth = wd; ctx.lineJoin = 'round'; ctx.stroke();
+}
+function dot(ctx, x, y, r, color) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = '#12151c'; ctx.stroke();
+}
+
+function ylab(ctx, s, x, y, color = C.muted) { ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.PI / 2); label(ctx, s, 0, 0, color, 'center'); ctx.restore(); }
+function cbar(ctx, xRight, y) { // colour key for spectrograms: dark = quiet, bright = loud
+  const bw = 44, x1 = xRight - 32;
+  label(ctx, 'loud', xRight, y, C.muted, 'right');
+  for (let i = 0; i < bw; i++) { ctx.fillStyle = LUTC[Math.round(i / (bw - 1) * 255)]; ctx.fillRect(x1 - bw + i, y - 4, 1.5, 8); }
+  label(ctx, 'quiet', x1 - bw - 6, y, C.muted, 'right');
+}
+
+/* ───────── audio ───────── */
+let AC = null, master = null, current = null, oneShot = null;
+function ac() {
+  if (!AC) { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.gain.value = 0.9; master.connect(AC.destination); }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function stopAll() {
+  if (oneShot) { try { oneShot.stop(); } catch (e) {} oneShot = null; ST9.row = null; redraw('c9s'); }
+  if (!current) return;
+  const c = current; current = null;
+  try { c.stop(); } catch (e) {}
+  c.btn.classList.remove('on'); c.btn.textContent = c.label;
+}
+// a looping tone never outlives its panel: stop when it scrolls away or the tab is hidden
+const playIO = new IntersectionObserver(es => {
+  for (const e of es) if (!e.isIntersecting && current && current.btn.closest('.viz') === e.target) stopAll();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopAll(); });
+function toggle(btn, start) {
+  if (current && current.btn === btn) { stopAll(); return; }
+  stopAll(); ac();
+  const text = btn.textContent;
+  const stop = start();
+  current = { btn, stop, label: text };
+  btn.classList.add('on'); btn.textContent = '■ Stop';
+  const viz = btn.closest('.viz'); playIO.disconnect(); if (viz) playIO.observe(viz);
+}
+
+/* ───────── hero ───────── */
+scene('hero', (ctx, w, h, t) => {
+  const g = ctx.createLinearGradient(0, 0, w, 0);
+  g.addColorStop(0, 'rgba(255,180,84,0)'); g.addColorStop(.15, C.a); g.addColorStop(.85, C.a); g.addColorStop(1, 'rgba(255,180,84,0)');
+  plot(ctx, u => (Math.sin(TAU * (3 * u - t * .25)) + .5 * Math.sin(TAU * (6 * u - t * .5)) + .33 * Math.sin(TAU * (9 * u - t * .75))) / 1.6, 0, w, h / 2, h * .38, g, 2);
+}, { ambient: true });
+
+/* ───────── 01 / 02 : air ───────── */
+function Tube() {
+  const pts = [], cols = 84, rows = 12;
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) pts.push({ x: (i + Math.random()) / cols, y: (j + .2 + Math.random() * .6) / rows });
+  const W = TAU * 0.7, CPX = 170 * 0.7, A = 13, tg = [{ t: -1e9, on: true }];
+  const T = {
+    on: true, A,
+    env(tau) { let st = tg[0]; for (const g of tg) if (g.t <= tau) st = g; const d = Math.max(0, (tau - st.t) / .4); return st.on ? Math.min(1, d) : Math.max(0, 1 - d); },
+    toggle() { T.on = !T.on; tg.push({ t: nowS(), on: T.on }); if (tg.length > 10) tg.shift(); },
+    disp(px, t) { const tau = t - px / CPX; return A * T.env(tau) * Math.sin(W * tau); },
+    press(px, t) { const tau = t - px / CPX; return T.env(tau) * Math.cos(W * tau); },
+    span(w) { return w - 40; },
+    draw(ctx, x, y, w, h, t, tracerU) {
+      const xs = x + 30, span = T.span(w);
+      for (let px = 0; px < w - 30; px += 4) {
+        const c = T.press(px, t);
+        if (c > 0) { ctx.fillStyle = `rgba(255,180,84,${(.13 * c).toFixed(3)})`; ctx.fillRect(xs + px, y, 4, h); }
+      }
+      ctx.fillStyle = 'rgba(236,232,223,.62)'; ctx.beginPath();
+      for (const p of pts) {
+        const rx = 10 + p.x * span, X = xs + rx + T.disp(rx, t), Y = y + p.y * h;
+        ctx.moveTo(X + 1.4, Y); ctx.arc(X, Y, 1.4, 0, TAU);
+      }
+      ctx.fill();
+      ctx.fillStyle = '#2a3140'; ctx.beginPath(); ctx.roundRect(x + 2, y + h * .3, 12, h * .4, 3); ctx.fill();
+      ctx.fillStyle = C.a; ctx.beginPath(); ctx.roundRect(xs - 12 + T.disp(0, t), y + 4, 7, h - 8, 3.5); ctx.fill();
+      if (tracerU != null) {
+        const rx = 10 + tracerU * span, X0 = xs + rx, Y = y + h / 2;
+        line(ctx, X0 - A, Y + 13, X0 + A, Y + 13, C.a, 1);
+        line(ctx, X0 - A, Y + 9, X0 - A, Y + 17, C.a, 1); line(ctx, X0 + A, Y + 9, X0 + A, Y + 17, C.a, 1);
+        dot(ctx, X0 + T.disp(rx, t), Y, 5.5, C.a);
+      }
+    }
+  };
+  return T;
+}
+const tube1 = Tube(), tube2 = Tube();
+function tubeBtn(btn, tube) { btn.onclick = () => { tube.toggle(); btn.textContent = tube.on ? 'Stop shaking' : 'Shake again'; }; }
+tubeBtn($('b1'), tube1); tubeBtn($('b2'), tube2);
+
+scene('c1', (ctx, w, h, t) => {
+  const y = 34, th = h - y - 34;
+  tube1.draw(ctx, 0, y, w, th, t, .3);
+  label(ctx, 'vibrating surface', 4, 14, C.a);
+  label(ctx, 'squeeze →', w - 4, 14, C.muted, 'right');
+  label(ctx, 'one bit of air', 40 + .3 * tube1.span(w), h - 12, C.a, 'center');
+});
+
+scene('c2', (ctx, w, h, t) => {
+  const y = 28, th = 124, md = 10 + .78 * tube2.span(w), xm = 30 + md;
+  tube2.draw(ctx, 0, y, w, th, t);
+  ctx.strokeStyle = C.a; ctx.lineWidth = 1.5; ctx.strokeRect(xm - 8, y - 4, 16, th + 8);
+  label(ctx, 'mic', xm, 12, C.a, 'center');
+  const top = y + th + 34, bot = h - 22, mid = (top + bot) / 2, amp = (bot - top) / 2 - 22, SCROLL = 70;
+  label(ctx, 'air pressure', 4, top - 14, C.text);
+  label(ctx, 'squeezed ↑', 4, top + 8); label(ctx, 'stretched ↓', 4, bot - 8);
+  label(ctx, '← earlier', 4, h - 8); label(ctx, 'now', xm, h - 8, C.a, 'center');
+  line(ctx, 0, mid, w, mid, C.line);
+  line(ctx, xm, y + th + 4, xm, bot, 'rgba(255,180,84,.45)', 1, DASH);
+  ctx.beginPath();
+  for (let px = 0; px <= xm; px += 2) {
+    const yy = mid - amp * tube2.press(md, t - (xm - px) / SCROLL);
+    px === 0 ? ctx.moveTo(px, yy) : ctx.lineTo(px, yy);
+  }
+  ctx.strokeStyle = C.a; ctx.lineWidth = LW; ctx.lineJoin = 'round'; ctx.stroke();
+  dot(ctx, xm, mid - amp * tube2.press(md, t), 5.5, C.a);
+});
+
+/* ───────── 03 : frequency + amplitude ───────── */
+const f3 = $('f3'), a3 = $('a3'); let tone3 = null;
+scene('c3', (ctx, w, h) => {
+  const f = +f3.value, a = +a3.value, L = 14, R = w - 14, mid = h / 2 + 10, amp = h / 2 - 50, T = .02;
+  line(ctx, L, mid, R, mid, C.line);
+  for (let ms = 0; ms <= 20; ms += 5) { const x = L + (R - L) * ms / 20; line(ctx, x, mid - 4, x, mid + 4, C.line); label(ctx, ms + ' ms', x, h - 10, C.muted, ms === 0 ? 'left' : ms === 20 ? 'right' : 'center'); }
+  plot(ctx, u => a * Math.sin(TAU * f * u * T), L, R, mid, amp, C.a, LW);
+  const cyc = (R - L) / (f * T), by = mid - amp - 14;
+  line(ctx, L, by, L + cyc, by, C.text, 1); line(ctx, L, by - 4, L, by + 4, C.text, 1); line(ctx, L + cyc, by - 4, L + cyc, by + 4, C.text, 1);
+  if (a > .05) {
+    const ax = L + cyc / 4;
+    line(ctx, ax, mid, ax, mid - a * amp, C.b, 1.5, DASH);
+    line(ctx, L, mid - a * amp, ax, mid - a * amp, C.b, 1, DASH);
+  }
+  // captions live in the header, clear of the wave at every frequency
+  label(ctx, 'amplitude ' + a.toFixed(2), L, 12, C.b);
+  label(ctx, `1 wiggle = ${(1000 / f).toFixed(1)} ms`, L, 28, C.text);
+  label(ctx, f + ' Hz', R, 20, C.text, 'right', `500 30px ${SERIF}`);
+}, { live: false });
+function upd3() { redraw('c3'); if (tone3) { tone3.o.frequency.setTargetAtTime(+f3.value, AC.currentTime, .02); tone3.g.gain.setTargetAtTime(+a3.value * .3, AC.currentTime, .02); } }
+f3.oninput = a3.oninput = upd3;
+$('p3').onclick = e => toggle(e.currentTarget, () => {
+  const o = AC.createOscillator(), g = AC.createGain(); o.frequency.value = +f3.value; g.gain.value = 0;
+  g.gain.setTargetAtTime(+a3.value * .3, AC.currentTime, .02); o.connect(g).connect(master); o.start(); tone3 = { o, g };
+  return () => { g.gain.setTargetAtTime(0, AC.currentTime, .02); o.stop(AC.currentTime + .2); tone3 = null; };
+});
+
+/* ───────── 04 : adding ───────── */
+const ph4 = $('ph4'); let a4 = null;
+scene('c4', (ctx, w, h, t) => {
+  const phi = +ph4.value * Math.PI / 180, L = 56, R = w - 50, unit = h * .112;
+  const mA = h * .14, mB = h * .40, mS = h * .74;
+  const A = u => Math.sin(TAU * 3 * u), B = u => Math.sin(TAU * 3 * u - phi), S = u => A(u) + B(u);
+  for (const m of [mA, mB, mS]) line(ctx, L, m, R, m, C.line);
+  label(ctx, 'A', 6, mA, C.a, 'left', `600 13px ${MONO}`); label(ctx, 'B', 6, mB, C.b, 'left', `600 13px ${MONO}`); label(ctx, 'A + B', 6, mS, C.c, 'left', `600 13px ${MONO}`);
+  plot(ctx, A, L, R, mA, unit, C.a, LW); plot(ctx, B, L, R, mB, unit, C.b, LW); plot(ctx, S, L, R, mS, unit, C.c, LW);
+  const u = (t * .09) % 1, x = L + (R - L) * u, a = A(u), b = B(u);
+  line(ctx, x, 6, x, h - 6, CURSOR, 1, DASH);
+  ctx.fillStyle = C.a; ctx.fillRect(x - 5, Math.min(mS, mS - a * unit), 4, Math.abs(a * unit));
+  ctx.fillStyle = C.b; ctx.fillRect(x + 1, Math.min(mS - a * unit, mS - (a + b) * unit), 4, Math.abs(b * unit));
+  dot(ctx, x, mA - a * unit, 4.5, C.a); dot(ctx, x, mB - b * unit, 4.5, C.b); dot(ctx, x, mS - (a + b) * unit, 5.5, C.c);
+  const fmt = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1);
+  const lx = x + 12 > R ? x - 12 : x + 12, al = x + 12 > R ? 'right' : 'left';
+  label(ctx, fmt(a), lx, mA - a * unit, C.a, al); label(ctx, fmt(b), lx, mB - b * unit, C.b, al); label(ctx, '= ' + fmt(a + b), lx, mS - (a + b) * unit, C.c, al);
+});
+function upd4() { if (a4) a4.d.delayTime.setTargetAtTime(+ph4.value / 360 / 220, AC.currentTime, .03); }
+ph4.oninput = upd4;
+$('in4').onclick = () => { ph4.value = 0; upd4(); };
+$('out4').onclick = () => { ph4.value = 180; upd4(); };
+$('p4').onclick = e => toggle(e.currentTarget, () => {
+  const o = AC.createOscillator(), gA = AC.createGain(), gB = AC.createGain(), d = AC.createDelay(.05), out = AC.createGain();
+  o.frequency.value = 220; gA.gain.value = gB.gain.value = .5; out.gain.value = 0; out.gain.setTargetAtTime(.25, AC.currentTime, .02);
+  d.delayTime.value = +ph4.value / 360 / 220;
+  o.connect(gA).connect(out); o.connect(d).connect(gB).connect(out); out.connect(master); o.start(); a4 = { d };
+  return () => { out.gain.setTargetAtTime(0, AC.currentTime, .02); o.stop(AC.currentTime + .2); a4 = null; };
+});
+
+/* ───────── 05 : harmonics ───────── */
+const BASE = 220, H = [1, .5, .33, .25, .2, .17];
+const PRESETS = { pure: [1, 0, 0, 0, 0, 0], soft: [1, .4, .12, .05, 0, 0], hollow: [1, 0, .33, 0, .2, 0], bright: [1, .5, .33, .25, .2, .17] };
+let Hv = 0, osc5 = null;
+const sliders5 = [];
+H.forEach((v, i) => {
+  const row = document.createElement('label'); row.className = 'hrow';
+  row.innerHTML = `<span>${i + 1}×<em> · ${BASE * (i + 1)} Hz</em></span><input type="range" min="0" max="1" step="0.01" value="${v}" aria-label="harmonic ${i + 1}">`;
+  const inp = row.querySelector('input'); sliders5.push(inp);
+  inp.oninput = () => { H[i] = +inp.value; changedH(); };
+  $('rows5').appendChild(row);
+});
+function changedH() { Hv++; redraw('c6s'); if (osc5) osc5.g.forEach((g, i) => g.gain.setTargetAtTime(H[i] * .1, AC.currentTime, .03)); }
+document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { PRESETS[b.dataset.p].forEach((v, i) => { H[i] = v; sliders5[i].value = v; }); changedH(); });
+const mix = u => { let s = 0; for (let n = 0; n < 6; n++) s += H[n] * Math.sin(TAU * (n + 1) * u); return s; };
+let pkV = -1, pkCache = 1;
+function peak() {
+  if (pkV === Hv) return pkCache;
+  let pk = 0; for (let i = 0; i < 400; i++) pk = Math.max(pk, Math.abs(mix(i / 400)));
+  pkV = Hv; return pkCache = pk || 1;
+}
+
+scene('c5s', (ctx, w, h, t) => {
+  const names = ['whole', 'halves', 'thirds', 'quarters'], n = 4, gw = w / n;
+  for (let k = 1; k <= n; k++) {
+    const x0 = (k - 1) * gw + 14, x1 = k * gw - 14, mid = h / 2 - 8, amp = 26, c = Math.cos(TAU * .45 * k * t);
+    for (const s of [1, -1]) plot(ctx, u => s * Math.sin(Math.PI * k * u), x0, x1, mid, amp, 'rgba(255,180,84,.16)', 1);
+    plot(ctx, u => Math.sin(Math.PI * k * u) * c, x0, x1, mid, amp, C.a, LW);
+    dot(ctx, x0, mid, 3.5, C.text); dot(ctx, x1, mid, 3.5, C.text);
+    label(ctx, w < 560 ? `${k}×` : `${k}× · ${names[k - 1]}`, (x0 + x1) / 2, h - 10, C.muted, 'center');
+  }
+}, { ambient: true });
+scene('c5r', (ctx, w, h, t) => {
+  for (let n = 1; n <= 6; n++) {
+    const mid = 40 * (n - 1) + 20, a = H[n - 1];
+    line(ctx, PAD, mid, w - PAD, mid, C.line);
+    if (a > .005) plot(ctx, u => a * Math.sin(TAU * n * (2 * u - t * .2)), PAD, w - PAD, mid, 16, `rgba(255,180,84,${.35 + .65 * a})`, LW_THIN);
+  }
+}, { ambient: true });
+scene('c5sum', (ctx, w, h, t) => {
+  const mid = h / 2 + 8, pk = peak(), amp = (h / 2 - 26) / Math.max(1, pk);
+  line(ctx, PAD, mid, w - PAD, mid, C.line);
+  for (let n = 1; n <= 6; n++) if (H[n - 1] > .005) plot(ctx, u => H[n - 1] * Math.sin(TAU * n * (2 * u - t * .2)), PAD, w - PAD, mid, amp, 'rgba(255,180,84,.18)', 1);
+  plot(ctx, u => mix(2 * u - t * .2), PAD, w - PAD, mid, amp, C.c, LW);
+  label(ctx, '= all of them added', PAD, 10, C.c);
+}, { ambient: true });
+$('p5').onclick = e => toggle(e.currentTarget, () => {
+  const out = AC.createGain(); out.gain.value = 0; out.gain.setTargetAtTime(1, AC.currentTime, .02); out.connect(master);
+  const os = [], g = [];
+  H.forEach((v, i) => { const o = AC.createOscillator(), gg = AC.createGain(); o.frequency.value = BASE * (i + 1); gg.gain.value = v * .1; o.connect(gg).connect(out); o.start(); os.push(o); g.push(gg); });
+  osc5 = { g };
+  return () => { out.gain.setTargetAtTime(0, AC.currentTime, .02); os.forEach(o => o.stop(AC.currentTime + .2)); osc5 = null; };
+});
+
+/* ───────── 06 : Fourier ───────── */
+const pr6 = $('pr6'), o6 = $('o6'), visited = new Set([8]); let sweep = null, mode6 = 'two';
+const MODES6 = { one: [0, 1, 0, 0, 0, 0], two: [1, 0, .5, 0, 0, 0] };
+const NAMES6 = { one: 'one pure tone, 440 Hz', two: '220 Hz + 660 Hz, mixed', mix: 'your mix from step 05' };
+const DONE6 = { one: 'one bar: the wave was a single 440 Hz tone', two: 'two bars: 220 Hz, and half as much 660 Hz', mix: 'the recipe you mixed in step 05, recovered' };
+const amps6 = () => MODES6[mode6] || H;
+const wave6 = u => { const a = amps6(); let s = 0; for (let n = 0; n < 6; n++) if (a[n]) s += a[n] * Math.sin(TAU * (n + 1) * u); return s; };
+const f2 = n => { const x = n / 100; return (Object.is(x, -0) || Math.abs(x) < .005 ? 0 : x).toFixed(2); }; // hundredths → amplitude
+const fmtS = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1);
+function score(f) { // (2/T)∫ wave · test tone  →  exactly the amount of that tone when f matches
+  const M = 800, T = 4; let acc = 0;
+  let g = 0, r = 0;
+  for (let i = 0; i < M; i++) { const u = (i + .5) / M * T, v = wave6(u) * Math.sin(TAU * f * u) * 2 / M; acc += v; if (v > 0) g += v; else r -= v; }
+  return [acc, g, r];
+}
+let k6 = '', pk6 = 1, sc6 = [], g6 = [], r6 = [];
+function calc6() {
+  const key = mode6 === 'mix' ? 'mix' + Hv : mode6; if (key === k6) return; k6 = key;
+  pk6 = 0; for (let i = 0; i < 400; i++) pk6 = Math.max(pk6, Math.abs(wave6(i / 400))); pk6 = pk6 || 1;
+  sc6 = []; g6 = []; r6 = []; for (let k = 1; k <= 28; k++) [sc6[k], g6[k], r6[k]] = score(k / 4);
+}
+function upd6() { o6.textContent = Math.round(+pr6.value * BASE) + ' Hz'; }
+pr6.oninput = () => { visited.add(Math.round(+pr6.value * 4)); upd6(); redraw('c6s'); }; upd6();
+function setMode6(m) { mode6 = m; document.querySelectorAll('.w6').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === m)); redraw('c6s'); }
+document.querySelectorAll('.w6').forEach(b => b.onclick = () => setMode6(b.dataset.m)); setMode6(mode6);
+$('sw6').onclick = e => {
+  const b = e.currentTarget;
+  if (sweep) { clearInterval(sweep); sweep = null; b.textContent = '▶ Sweep'; return; }
+  let k = 1; visited.clear(); b.textContent = '■ Stop'; redraw('c6s');
+  sweep = setInterval(() => { pr6.value = k / 4; visited.add(k); upd6(); redraw('c6s'); if (++k > 28) { clearInterval(sweep); sweep = null; b.textContent = '▶ Sweep'; } }, 170);
+};
+
+// what it does: wave in → pure tones out → how much of each
+scene('c6a', (ctx, w, h, t) => {
+  calc6(); const a = amps6(), narrow = w < 560, mid = h / 2 + 8;
+  const x1 = w * (narrow ? .23 : .28), bx0 = w * (narrow ? .28 : .33), bx1 = w * (narrow ? .5 : .49), tx0 = w * .55, tx1 = w * .78, lw = narrow ? 28 : 52, gx0 = w * .81, gx1 = w - lw - 6;
+  label(ctx, 'wave in', PAD, 10, C.c); label(ctx, narrow ? 'tones out' : 'pure tones out', tx0, 10, C.a); label(ctx, 'amplitude', narrow ? w - 1 : gx0, 10, C.text, narrow ? 'right' : 'left');
+  plot(ctx, u => wave6(1.5 * u - t * .35) / pk6, PAD, x1, mid, h * .28, C.c, LW);
+  line(ctx, x1 + 3, mid, bx0 - 3, mid, C.muted); line(ctx, bx0 - 8, mid - 4, bx0 - 3, mid, C.muted); line(ctx, bx0 - 8, mid + 4, bx0 - 3, mid, C.muted);
+  ctx.beginPath(); ctx.roundRect(bx0, mid - 34, bx1 - bx0, 68, 10); ctx.fillStyle = 'rgba(255,180,84,.08)'; ctx.fill(); ctx.strokeStyle = C.a; ctx.lineWidth = 1.5; ctx.stroke();
+  const bf = `600 ${narrow ? 10 : 12}px ${MONO}`;
+  label(ctx, 'Fourier', (bx0 + bx1) / 2, mid - 8, C.a, 'center', bf); label(ctx, 'transform', (bx0 + bx1) / 2, mid + 8, C.a, 'center', bf);
+  const top = 28, rh = (h - top - 6) / 6;
+  for (let n = 0; n < 6; n++) {
+    const y = top + rh * (n + .5), on = a[n] > .005;
+    line(ctx, bx1 + 1, mid, tx0 - 4, y, on ? 'rgba(255,180,84,.5)' : 'rgba(255,180,84,.12)');
+    line(ctx, tx0, y, tx1, y, C.line);
+    if (on) plot(ctx, u => a[n] * Math.sin(TAU * (n + 1) * (1.5 * u - t * .35)), tx0, tx1, y, rh * .4, `rgba(255,180,84,${.4 + .6 * a[n]})`, LW_THIN);
+    ctx.fillStyle = '#1b202b'; ctx.fillRect(gx0, y - 5, gx1 - gx0, 10);
+    ctx.fillStyle = C.a; ctx.fillRect(gx0, y - 5, (gx1 - gx0) * clamp(a[n]), 10);
+    label(ctx, (n + 1) * BASE + (narrow ? '' : ' Hz'), w, y, on ? C.text : C.muted, 'right');
+  }
+}, { ambient: true });
+
+// how it works: one test tone, multiplied in, area added up
+scene('c6', (ctx, w, h, t) => {
+  calc6(); const f = +pr6.value, narrow = w < 560, L = 4, GW = 74, R = w - GW - 8, T = 4;
+  const r1 = 56, r2 = 142, r3 = 252, A3 = 52;
+  const s = u => wave6(u * T) / pk6, p = u => Math.sin(TAU * f * u * T);
+  label(ctx, 'the wave: ' + NAMES6[mode6], L, 10, C.c);
+  line(ctx, L, r1, R, r1, C.line); plot(ctx, s, L, R, r1, 34, C.c, LW);
+  line(ctx, L, r2, R, r2, C.line); plot(ctx, p, L, R, r2, 24, C.b, LW);
+  const kk = Math.round(f * 4), sc = sc6[kk], pct = Math.round(sc * 100), rP = Math.round(r6[kk] * 100), gP = pct + rP;
+  for (const [up, col] of [[true, 'rgba(125,216,125,.6)'], [false, 'rgba(255,107,107,.6)']]) {
+    ctx.save(); ctx.beginPath(); ctx.rect(L, up ? r3 - A3 - 6 : r3, R - L, A3 + 6); ctx.clip();
+    ctx.beginPath(); ctx.moveTo(L, r3);
+    for (let x = L; x <= R; x++) { const u = (x - L) / (R - L); ctx.lineTo(x, r3 - A3 * s(u) * p(u)); }
+    ctx.lineTo(R, r3); ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.restore();
+  }
+  line(ctx, L, r3, R, r3, 'rgba(236,232,223,.4)');
+  // one instant, spelled out
+  const u = (t * .05) % 1, x = L + (R - L) * u, sv = s(u), pv = p(u), pr = sv * pv;
+  line(ctx, x, 22, x, r3 + A3 + 4, CURSOR, 1, DASH);
+  // row captions go on after the cursor, so it never strikes through them
+  label(ctx, `× test tone: ${Math.round(f * BASE)} Hz`, L, 102, C.b);
+  parts(ctx, [['= green ' + f2(gP), C.ok], [' − ', C.muted], ['red ' + f2(rP), C.bad], [' = ', C.muted], [f2(pct), C.a]], L, 188);
+  dot(ctx, x, r1 - 34 * sv, 4.5, C.c); dot(ctx, x, r2 - 24 * pv, 4.5, C.b); dot(ctx, x, r3 - A3 * pr, 5.5, pr >= 0 ? C.ok : C.bad);
+  const far = x > R - 100;
+  parts(ctx, [[fmtS(sv), C.c], [' × ', C.muted], [fmtS(pv), C.b], [' = ', C.muted], [fmtS(pr), pr >= 0 ? C.ok : C.bad]], far ? x - 8 : x + 8, r3 + A3 + 14, far ? 'right' : 'left');
+  // the verdict
+  const gx = R + 8 + GW / 2, bh = clamp(sc, -1, 1) * 62;
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(gx - 13.5, r3 - 62.5, 27, 125);
+  ctx.fillStyle = sc >= 0 ? C.a : C.bad; ctx.fillRect(gx - 13, Math.min(r3, r3 - bh), 26, Math.abs(bh));
+  line(ctx, gx - 18, r3, gx + 18, r3, C.text);
+  label(ctx, 'amplitude', gx, r3 - 76, C.text, 'center');
+  const hit = Math.abs(sc) > .04;
+  label(ctx, f2(pct), gx, r3 + 78, hit ? C.a : C.muted, 'center', `600 12px ${MONO}`);
+  label(ctx, narrow ? 'green: same side' : 'green: wave and test tone on the same side', L, h - 8, C.ok);
+  label(ctx, narrow ? 'red: opposite' : 'red: on opposite sides', L + (narrow ? 124 : 300), h - 8, C.bad);
+});
+
+// keeping score: add up green, add up red, let them cancel; the % left becomes one bar
+function parts(ctx, arr, x, y, align = 'left', font) {
+  ctx.save(); ctx.font = font || `11px ${MONO}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  let wd = 0; for (const [s] of arr) wd += ctx.measureText(s).width;
+  const x0 = align === 'right' ? x - wd : align === 'center' ? x - wd / 2 : x;
+  ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = label.bg || '#12151c'; ctx.strokeText(arr.map(a => a[0]).join(''), x0, y); // same halo as label()
+  let tx = x0;
+  for (const [s, col] of arr) { ctx.fillStyle = col; ctx.fillText(s, tx, y); tx += ctx.measureText(s).width; }
+  ctx.restore();
+}
+const K6 = { fs: [110, 220, 330, 440, 550, 660, 770, 880], q: 0, t0: null, auto: !RM, done: new Set(), cum: null, pk: 1, a: 1, b: .5 };
+const kWave = u => K6.a * Math.sin(TAU * u) + K6.b * Math.sin(TAU * 3 * u); // some 220 Hz + some 660 Hz, set by the two mix sliders
+function kCum() {
+  if (K6.cum) return K6.cum;
+  const M = 600, T = 4;
+  K6.pk = 1; for (let i = 0; i < 400; i++) K6.pk = Math.max(K6.pk, Math.abs(kWave(i / 400)));
+  return K6.cum = K6.fs.map(f => {
+    const r = f / BASE, g = new Float32Array(M + 1), rd = new Float32Array(M + 1); let ag = 0, ar = 0;
+    for (let i = 0; i < M; i++) {
+      const u = (i + .5) / M * T, v = kWave(u) * Math.sin(TAU * r * u) * 2 / M; // scaled so a full-strength match totals 1.0 = 100%
+      if (v > 0) ag += v; else ar -= v;
+      g[i + 1] = ag; rd[i + 1] = ar;
+    }
+    return { g, r: rd };
+  });
+}
+function k6mix() {
+  K6.a = +$('k6a').value; K6.b = +$('k6b').value; K6.cum = null;
+  $('k6ao').textContent = K6.a.toFixed(2); $('k6bo').textContent = K6.b.toFixed(2);
+  $('k6txt').textContent = `${K6.a.toFixed(2)} of 220 Hz and ${K6.b.toFixed(2)} of 660 Hz`;
+}
+$('k6a').oninput = $('k6b').oninput = k6mix;
+$('k6play').onclick = () => { K6.q = 0; K6.done.clear(); K6.auto = true; K6.t0 = null; };
+$('k6next').onclick = () => { K6.auto = false; K6.done.add(K6.q); if (K6.q < 7) { K6.q++; K6.t0 = null; } };
+$('k6prev').onclick = () => { K6.auto = false; K6.q = Math.max(0, K6.q - 1); K6.done.delete(K6.q); K6.t0 = null; };
+scene('c6k', (ctx, w, h, t) => {
+  const cum = kCum(), narrow = w < 560, SWEEP = 3.2, HOLD = 1.8, M = 600, T = 4;
+  if (K6.t0 == null) K6.t0 = t;
+  let ph = t - K6.t0;
+  if (ph > SWEEP) K6.done.add(K6.q);
+  if (ph > SWEEP + HOLD) { if (K6.auto && K6.q < 7) { K6.q++; K6.t0 = t; ph = 0; } else ph = SWEEP + HOLD; }
+  const q = K6.q, f = K6.fs[q], r = f / BASE, prog = clamp(ph / SWEEP), grow = clamp((ph - SWEEP) / .5);
+  const L = 4, PR = w - (narrow ? 50 : 76), X = u => L + (PR - L) * u, xs = X(prog);
+  const s = u => kWave(u * T) / K6.pk, p = u => Math.sin(TAU * r * u * T);
+  const pc = v => Math.round(v * 100);
+  // the wave and the question
+  label(ctx, 'the wave: two tones, mixed', L, 10, C.c);
+  line(ctx, L, 40, PR, 40, C.line); plot(ctx, s, L, PR, 40, 16, C.c, LW);
+  label(ctx, `question ${q + 1} of 8: any ${f} Hz?`, L, 70, C.b);
+  line(ctx, L, 96, PR, 96, C.line); plot(ctx, p, L, PR, 96, 14, C.b, LW);
+  // the product, revealed as the sweep passes
+  label(ctx, '= multiplied', L, 128, C.text);
+  const yC = 170, aC = 28;
+  for (const [up, col] of [[true, 'rgba(125,216,125,.6)'], [false, 'rgba(255,107,107,.6)']]) {
+    ctx.save(); ctx.beginPath(); ctx.rect(L, up ? yC - aC - 6 : yC, xs - L, aC + 6); ctx.clip();
+    ctx.beginPath(); ctx.moveTo(L, yC);
+    for (let x = L; x <= PR; x++) { const u = (x - L) / (PR - L); ctx.lineTo(x, yC - aC * s(u) * p(u)); }
+    ctx.lineTo(PR, yC); ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.restore();
+  }
+  line(ctx, L, yC, PR, yC, 'rgba(236,232,223,.4)');
+  // the sweep cursor goes down first, so the captions and bars below sit on top of it
+  if (prog < 1) line(ctx, xs, yC - aC - 8, xs, 382, CURSOR, 1, DASH);
+  // the tally: all the green, all the red, and red cancels its own length of green
+  const n = Math.round(prog * M), G = cum[q].g[n], Rd = cum[q].r[n], val = G - Rd, barW = v => v * (PR - L) / 1.4;
+  const pct = pc(val), rP = pc(Rd), gP = pct + rP;
+  label(ctx, 'add up each colour', L, 214, C.text);
+  const cut = Math.min(G, Rd);
+  ctx.fillStyle = '#12151c'; ctx.fillRect(L, 226, barW(Math.max(G, Rd)), 34);
+  ctx.fillStyle = 'rgba(125,216,125,.22)'; ctx.fillRect(L, 226, barW(cut), 14);
+  ctx.fillStyle = C.ok; ctx.fillRect(L + barW(cut), 226, barW(G - cut), 14);
+  ctx.fillStyle = 'rgba(255,107,107,.75)'; ctx.fillRect(L, 244, barW(Rd), 14);
+  if (cut > .01) { line(ctx, L + barW(cut), 224, L + barW(cut), 260, 'rgba(236,232,223,.5)', 1, DASH); if (!narrow && barW(cut) > 70) label(ctx, 'cancelled', L + barW(cut) / 2, 233, 'rgba(236,232,223,.6)', 'center'); }
+  parts(ctx, [['green ' + f2(gP), C.ok], [' − ', C.muted], ['red ' + f2(rP), C.bad], [' = ', C.muted], ['amplitude ' + f2(pct), C.a]], L, 276, 'left', `600 12px ${MONO}`);
+  // the running total: green so far minus red so far
+  const zD = 370, U = 50, yH = zD - U * val;
+  label(ctx, 'what’s left: green − red', L, 298, C.text);
+  for (const g of [0, .5, 1]) { line(ctx, L, zD - U * g, PR, zD - U * g, g ? 'rgba(36,42,55,.9)' : 'rgba(236,232,223,.4)', 1, g ? DASH : null); label(ctx, g.toFixed(1), PR + 6, zD - U * g, 'rgba(140,147,163,.55)'); }
+  ctx.beginPath(); for (let i = 0; i <= n; i++) { const x = X(i / M), y = zD - U * (cum[q].g[i] - cum[q].r[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.strokeStyle = C.a; ctx.lineWidth = LW; ctx.lineJoin = 'round'; ctx.stroke();
+  dot(ctx, xs, yH, 5.5, C.a);
+  const big = Math.abs(val) > .04;
+  if (prog < 1) label(ctx, f2(pct), xs + 10 > PR - 34 ? xs - 10 : xs + 10, yH - 12, C.a, xs + 10 > PR - 34 ? 'right' : 'left');
+  // what's left drops into the bar chart
+  const bE = h - 26, sw = (w - 2 * L) / 8, sx = i => L + (i + .5) * sw, bw = Math.min(30, sw * .5), yLb = 392, yEl = 408;
+  label(ctx, 'one bar per question', L, yLb, C.text);
+  line(ctx, L, bE, w - L, bE, C.line);
+  K6.fs.forEach((ff, i) => {
+    const cur = i === q, shown = cur ? ph > SWEEP : K6.done.has(i), g = cur ? grow : 1, v = cum[i].g[M] - cum[i].r[M];
+    label(ctx, ff + (narrow ? '' : ' Hz'), sx(i), bE + 13, cur ? C.b : C.muted, 'center');
+    if (!shown) { ctx.beginPath(); ctx.arc(sx(i), bE, 1.5, 0, TAU); ctx.fillStyle = '#3a4356'; ctx.fill(); return; }
+    const bh = Math.max(0, v) * U * g, on = v > .04;
+    ctx.fillStyle = on ? C.a : C.muted; ctx.fillRect(sx(i) - bw / 2, bE - Math.max(bh, 3), bw, Math.max(bh, 3));
+    if (g > .9) label(ctx, f2(pc(v)), sx(i), bE - bh - 10, on ? C.a : C.muted, 'center');
+  });
+  if (ph > SWEEP) {
+    label(ctx, f2(pct), PR - 10, yH - 14, C.a, 'right', `600 12px ${MONO}`);
+    const gx = PR + (narrow ? 34 : 56), tip = Math.max(yEl, bE - Math.max(0, val) * U - 22);
+    ctx.save(); ctx.globalAlpha = grow; ctx.strokeStyle = C.a; ctx.lineWidth = 1.2; ctx.setLineDash(DASH);
+    ctx.beginPath(); ctx.moveTo(gx, yH + 8); ctx.lineTo(gx, yEl); ctx.lineTo(sx(q), yEl); ctx.lineTo(sx(q), tip); ctx.stroke();
+    ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(sx(q) - 4, tip - 5); ctx.lineTo(sx(q), tip); ctx.lineTo(sx(q) + 4, tip - 5); ctx.stroke();
+    ctx.restore();
+    if (!narrow || sx(q) < gx - 190) label(ctx, big ? `${f2(pct)} → its bar` : 'cancelled → no bar', sx(q) > gx - 190 ? sx(q) - 12 : gx - 10, yLb, big ? C.a : C.muted, 'right');
+  }
+});
+
+// by hand: 12 samples, and every step of the arithmetic written out
+const H6 = { f: 1, a: 1, N: 12 };
+const nf = x => { let r = Math.round(x * 10) / 10; if (r === 0) r = 0; const s = Math.abs(r) % 1 === 0 ? Math.abs(r).toFixed(0) : Math.abs(r).toFixed(1); return (r < 0 ? '−' : '') + s; };
+const h6C = u => 2 * Math.sin(TAU * u) + 5 * Math.sin(TAU * 3 * u), h6T = u => H6.a * Math.sin(TAU * H6.f * u);
+const h6P = i => Math.round(h6C(i / H6.N) * h6T(i / H6.N) * 100) / 100;
+function h6upd() {
+  document.querySelectorAll('.h6f').forEach(b => b.setAttribute('aria-pressed', +b.dataset.f === H6.f));
+  document.querySelectorAll('.h6a').forEach(b => b.setAttribute('aria-pressed', +b.dataset.a === H6.a));
+  let sum = 0, html = '';
+  for (let i = 0; i < H6.N; i++) {
+    const p = h6P(i); sum += p;
+    const col = Math.abs(p) < .05 ? 'var(--muted)' : p >= 0 ? 'var(--ok)' : 'var(--bad)';
+    if (i) html += p < -.04 ? ' − ' : ' + ';
+    html += `<span style="color:${col}">${i ? nf(Math.abs(p)) : nf(p)}</span>`;
+  }
+  sum = Math.round(sum * 10) / 10;
+  const amp = sum / H6.N * 2 / H6.a;
+  $('h6sum').innerHTML = html + ` = <b style="color:var(--text)">${nf(sum)}</b>`;
+  $('h6m1').textContent = nf(sum); $('h6m2').textContent = nf(sum / H6.N); $('h6m3').textContent = nf(sum / H6.N * 2);
+  $('h6l4').textContent = '÷ test amplitude ' + H6.a; $('h6m4').textContent = nf(amp);
+  $('h6v').textContent = Math.abs(amp) < .05 ? `No ${H6.f} Hz in the wave.` : `${H6.f} Hz, amplitude ${nf(amp)}.`;
+  redraw('c6h');
+}
+document.querySelectorAll('.h6f').forEach(b => b.onclick = () => { H6.f = +b.dataset.f; h6upd(); });
+document.querySelectorAll('.h6a').forEach(b => b.onclick = () => { H6.a = +b.dataset.a; h6upd(); });
+h6upd();
+scene('c6h', (ctx, w, h) => {
+  const narrow = w < 560, N = H6.N, L = 4, R = w - 4, fnt = `${narrow ? 10 : 11}px ${MONO}`;
+  const xs = i => L + (R - L) * (i + .5) / N;
+  const nv = v => narrow ? nf(Math.round(v)) : nf(v); // products as whole numbers on a phone, so neighbouring labels don't collide
+  for (let i = 0; i < N; i++) line(ctx, xs(i), 22, xs(i), h - 6, GUIDE, 1, DASH);
+  const wave = (mid, fn, col, sc) => {
+    line(ctx, L, mid, R, mid, C.line);
+    plot(ctx, u => fn(u - .5 / N), L, R, mid, sc, col, LW);
+    for (let i = 0; i < N; i++) { const val = fn(i / N), y = mid - sc * val; dot(ctx, xs(i), y, 4.5, col); label(ctx, nf(val), xs(i), y + (val >= 0 ? -12 : 13), col, 'center', fnt); }
+  };
+  parts(ctx, [['1  ', C.a], ['the wave: 12 samples', C.c]], L, 10);
+  wave(70, h6C, C.c, 5.3);
+  parts(ctx, [['2  ', C.a], [`test tone: ${H6.f} Hz, amplitude ${H6.a}`, C.b]], L, 128);
+  wave(180, h6T, C.b, 9);
+  parts(ctx, [['3  ', C.a], ['multiply each pair', C.text]], L, 232);
+  const mP = 320, sp = 3.2, bw = Math.min(22, (R - L) / N * .5);
+  line(ctx, L, mP, R, mP, 'rgba(236,232,223,.4)');
+  for (let i = 0; i < N; i++) {
+    const p = h6P(i), bh = Math.abs(p) * sp, col = Math.abs(p) < .05 ? C.muted : p >= 0 ? C.ok : C.bad;
+    if (bh > .5) { ctx.fillStyle = col; ctx.fillRect(xs(i) - bw / 2, p >= 0 ? mP - bh : mP, bw, bh); }
+    label(ctx, nv(p), xs(i), p >= 0 ? mP - bh - 10 : mP + bh + 11, col, 'center', fnt);
+  }
+}, { live: false });
+
+// every frequency → the spectrum
+scene('c6s', (ctx, w, h) => {
+  calc6(); const L = 10, R = w - 10, base = h - 24, top = 38, step = (R - L) / 29;
+  line(ctx, L, base, R, base, C.line);
+  const cur = Math.round(+pr6.value * 4), bw = Math.max(3, step * .5);
+  for (let k = 1; k <= 28; k++) {
+    const x = L + k * step;
+    if (visited.has(k)) {
+      const bh = clamp(sc6[k]) * (base - top);
+      if (bh > 1) { ctx.fillStyle = C.a; ctx.fillRect(x - bw / 2, base - bh, bw, bh); label(ctx, sc6[k].toFixed(2), x, base - bh - 9, C.a, 'center'); }
+      else { ctx.fillStyle = C.muted; ctx.fillRect(x - bw / 2, base - 1.5, bw, 3); }
+    } else { ctx.beginPath(); ctx.arc(x, base, 1.5, 0, TAU); ctx.fillStyle = '#3a4356'; ctx.fill(); }
+    if (k % 4 === 0) { line(ctx, x, base, x, base + 4, C.muted); label(ctx, k / 4 * BASE + (k === 28 && w >= 560 ? ' Hz' : ''), x, base + 13, C.muted, 'center'); }
+  }
+  const cx = L + cur * step;
+  ctx.beginPath(); ctx.moveTo(cx, base + 2); ctx.lineTo(cx - 4, base + 7); ctx.lineTo(cx + 4, base + 7); ctx.closePath(); ctx.fillStyle = C.b; ctx.fill();
+  line(ctx, cx, top, cx, base, 'rgba(92,200,242,.25)', 1, DASH);
+  if (w < 560) label(ctx, 'Hz', L - 6, base + 13, C.muted); // no room for the unit on the last tick
+  if (visited.size >= 28) label(ctx, DONE6[mode6], R, 10, C.a, 'right');
+  else label(ctx, `${visited.size} of 28 asked`, R, 10, C.muted, 'right');
+}, { live: false });
+
+// what it's for: edit the bars, transform back
+let dn = null, dnOff = false, dnK = 1, dnAudio = null;
+function getDn() {
+  if (dn) return dn;
+  const N = 16384, bin = SR / N, WB = 3072, x = new Float64Array(N), f0 = 225 * bin; // both land exactly on an FFT bin
+  for (let i = 0; i < N; i++) {
+    const tt = i / SR; let s = 0; for (let k = 1; k <= 6; k++) s += Math.sin(TAU * k * f0 * tt) / k;
+    x[i] = .28 * s + .13 * Math.sin(TAU * WB * bin * tt);
+  }
+  const re = Float64Array.from(x), im = new Float64Array(N); fft(re, im);
+  const bars = []; for (let k = 1; k <= 6; k++) bars.push({ f: k * f0, m: Math.hypot(re[225 * k], im[225 * k]) / (N / 2) });
+  const whine = { f: WB * bin, m: Math.hypot(re[WB], im[WB]) / (N / 2) };
+  for (let k = WB - 4; k <= WB + 4; k++) { re[k] = im[k] = 0; re[N - k] = im[N - k] = 0; } // delete the bar…
+  ifft(re, im);                                                                            // …and transform back
+  return dn = { noisy: Float32Array.from(x), clean: Float32Array.from(re), bars, whine };
+}
+scene('c6d', (ctx, w, h) => {
+  const D = getDn(), narrow = w < 560; dnK += ((dnOff ? 0 : 1) - dnK) * .14;
+  const L = 4, R = w - 4, wm = 76, wa = 44, n = narrow ? 220 : 400;
+  label(ctx, dnOff ? 'transformed back: clean' : 'a note + an annoying whine', L, 10, C.c);
+  line(ctx, L, wm, R, wm, C.line);
+  const v = j => D.clean[j] + dnK * (D.noisy[j] - D.clean[j]);
+  plot(ctx, u => { const i = u * (n - 1), a = Math.floor(i), fr = i - a; return (v(a) + (v(a + 1) - v(a)) * fr) / .6; }, L, R, wm, wa, C.c, LW);
+  const base = h - 24, top = 172, FM = 4000, xf = f => L + 14 + f / FM * (R - L - 28), sy = m => m / .3 * (base - top);
+  label(ctx, dnOff ? 'its spectrum: whine deleted' : 'its spectrum', L, 148, C.text);
+  line(ctx, L, base, R, base, C.line);
+  for (let f = 0; f <= FM; f += 1000) label(ctx, f ? f / 1000 + 'k' + (f === FM ? ' Hz' : '') : '0', xf(f), base + 13, C.muted, 'center');
+  for (const b of D.bars) { ctx.fillStyle = C.a; ctx.fillRect(xf(b.f) - 4, base - sy(b.m), 8, sy(b.m)); }
+  label(ctx, 'the note', xf(770), top - 6, C.a, 'center');
+  const wx = xf(D.whine.f), wh = sy(D.whine.m);
+  ctx.save(); ctx.setLineDash(DASH); ctx.strokeStyle = 'rgba(255,107,107,.6)'; ctx.strokeRect(wx - 4, base - wh, 8, wh); ctx.restore();
+  ctx.fillStyle = C.bad; ctx.fillRect(wx - 4, base - wh * dnK, 8, wh * dnK);
+  label(ctx, dnOff ? 'deleted' : 'the whine', wx, base - wh - 12, C.bad, 'center');
+});
+$('rm6').onclick = e => {
+  dnOff = !dnOff; e.currentTarget.setAttribute('aria-pressed', dnOff); e.currentTarget.textContent = dnOff ? 'Put the bar back' : "Delete the whine";
+  if (dnAudio) { dnAudio.a.gain.setTargetAtTime(dnOff ? 0 : 1, AC.currentTime, .05); dnAudio.b.gain.setTargetAtTime(dnOff ? 1 : 0, AC.currentTime, .05); }
+};
+$('p6d').onclick = e => toggle(e.currentTarget, () => {
+  const D = getDn(), out = AC.createGain(); out.gain.value = 0; out.gain.setTargetAtTime(.6, AC.currentTime, .03); out.connect(master);
+  const mkS = (x, g0) => {
+    const buf = AC.createBuffer(1, x.length, SR); buf.getChannelData(0).set(x);
+    const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = buf; s.loop = true; g.gain.value = g0; s.connect(g).connect(out); return { s, g };
+  };
+  const a = mkS(D.noisy, dnOff ? 0 : 1), b = mkS(D.clean, dnOff ? 1 : 0), t0 = AC.currentTime + .02;
+  a.s.start(t0); b.s.start(t0); dnAudio = { a: a.g, b: b.g };
+  return () => { out.gain.setTargetAtTime(0, AC.currentTime, .03); a.s.stop(AC.currentTime + .25); b.s.stop(AC.currentTime + .25); dnAudio = null; };
+});
+
+/* ───────── DSP ───────── */
+const SR = 16000, NFFT = 1024, HOP = 160, BINS = NFFT / 2 + 1, DUR = 4;
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -TAU / len, wr = Math.cos(ang), wi = Math.sin(ang), half = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < half; k++) {
+        const a = i + k, b = a + half, vr = re[b] * cr - im[b] * ci, vi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - vr; im[b] = im[a] - vi; re[a] += vr; im[a] += vi;
+        const nc = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nc;
+      }
+    }
+  }
+}
+function ifft(re, im) {
+  const n = re.length;
+  for (let i = 0; i < n; i++) im[i] = -im[i];
+  fft(re, im);
+  for (let i = 0; i < n; i++) { re[i] /= n; im[i] = -im[i] / n; }
+}
+const STOPS = [[0, 0, 4], [31, 12, 72], [85, 15, 109], [136, 34, 106], [186, 54, 85], [227, 89, 51], [249, 140, 10], [249, 201, 50], [252, 255, 164]];
+const LUT = new Uint8Array(256 * 3), LUTC = [];
+for (let i = 0; i < 256; i++) {
+  const p = i / 255 * (STOPS.length - 1), a = Math.min(STOPS.length - 2, Math.floor(p)), f = p - a;
+  for (let c = 0; c < 3; c++) LUT[i * 3 + c] = Math.round(STOPS[a][c] + (STOPS[a + 1][c] - STOPS[a][c]) * f);
+  LUTC.push(`rgb(${LUT[i * 3]},${LUT[i * 3 + 1]},${LUT[i * 3 + 2]})`);
+}
+const hz2mel = f => 2595 * Math.log10(1 + f / 700), mel2hz = m => 700 * (Math.pow(10, m / 2595) - 1);
+const FMAX = 8000, MMAX = hz2mel(FMAX);
+function melFilters(nMel, nBins, binHz) {
+  const pts = []; for (let i = 0; i <= nMel + 1; i++) pts.push(mel2hz(MMAX * i / (nMel + 1)));
+  const filters = [];
+  for (let m = 0; m < nMel; m++) {
+    const lo = pts[m], c = pts[m + 1], hi = pts[m + 2], fl = [];
+    for (let b = Math.max(1, Math.ceil(lo / binHz)); b < nBins && b * binHz < hi; b++) {
+      const f = b * binHz, wt = f <= c ? (f - lo) / (c - lo) : (hi - f) / (hi - c);
+      if (wt > 0) fl.push([b, wt]);
+    }
+    if (!fl.length) fl.push([Math.min(nBins - 1, Math.max(1, Math.round(c / binHz))), 1]);
+    let sum = 0; for (const e of fl) sum += e[1];
+    for (const e of fl) e[1] /= sum; // each band = weighted average, so wide bands aren't louder just for being wide
+    filters.push(fl);
+  }
+  return { pts, filters };
+}
+const fbCache = {}, melFB = n => fbCache[n] || (fbCache[n] = melFilters(n, BINS, SR / NFFT)); // one filter bank per band count, shared by every sound
+function synth(name) {
+  const n = SR * DUR, x = new Float32Array(n);
+  if (name === 'sweep') {
+    let ph = 0; for (let i = 0; i < n; i++) { ph += TAU * (120 + 7300 * i / n) / SR; x[i] = Math.sin(ph); }
+  } else if (name === 'melody') {
+    const notes = [262, 330, 392, 523, 440, 392, 330, 262], seg = SR / 2;
+    notes.forEach((f, k) => {
+      for (let i = 0; i < seg; i++) {
+        const tt = i / SR, env = Math.min(1, tt / .012) * Math.exp(-tt * 4) * Math.min(1, (.5 - tt) / .02);
+        let s = 0; for (let h = 1; h <= 8; h++) s += Math.sin(TAU * h * f * tt) / h;
+        x[k * seg + i] = env * s;
+      }
+    });
+  } else { // vowel-like: harmonics of a gliding pitch, shaped by three moving resonances
+    const KF = [[800, 1200, 2500], [450, 2100, 2800], [300, 2600, 3300], [500, 900, 2500], [350, 750, 2400]];
+    const amps = new Float32Array(72); let ph = 0, K = 0;
+    for (let i = 0; i < n; i++) {
+      const tt = i / SR, f0 = 115 + 45 * Math.sin(Math.PI * tt / DUR) + 2.5 * Math.sin(TAU * 5.5 * tt);
+      if (i % 32 === 0) {
+        const pos = tt / DUR * 4, a = Math.min(3, Math.floor(pos)), fr = pos - a, sm = fr * fr * (3 - 2 * fr);
+        const F = KF[a].map((v, j) => v + (KF[a + 1][j] - v) * sm);
+        K = Math.min(70, Math.floor(7600 / f0));
+        for (let k = 1; k <= K; k++) {
+          const f = k * f0;
+          amps[k] = (.004 + Math.exp(-(((f - F[0]) / 130) ** 2)) + .6 * Math.exp(-(((f - F[1]) / 170) ** 2)) + .3 * Math.exp(-(((f - F[2]) / 240) ** 2))) / Math.pow(k, .3);
+        }
+      }
+      ph += TAU * f0 / SR;
+      let s = 0; for (let k = 1; k <= K; k++) s += amps[k] * Math.sin(k * ph);
+      x[i] = s;
+    }
+  }
+  let pk = 0; for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(x[i]));
+  const fade = SR * .03;
+  for (let i = 0; i < n; i++) x[i] *= .5 / pk * Math.min(1, i / fade, (n - 1 - i) / fade);
+  return x;
+}
+function toImage(frames, rows, pick) {
+  const cv = document.createElement('canvas'); cv.width = frames; cv.height = rows;
+  const c = cv.getContext('2d'), id = c.createImageData(frames, rows);
+  for (let r = 0; r < rows; r++) for (let f = 0; f < frames; f++) {
+    const v = Math.round(clamp(pick(f, r)) * 255), o = (r * frames + f) * 4;
+    id.data[o] = LUT[v * 3]; id.data[o + 1] = LUT[v * 3 + 1]; id.data[o + 2] = LUT[v * 3 + 2]; id.data[o + 3] = 255;
+  }
+  c.putImageData(id, 0, 0); return cv;
+}
+const sounds = {};
+function getSound(name) {
+  if (sounds[name]) return sounds[name];
+  const x = synth(name), n = x.length, frames = Math.floor(n / HOP) + 1;
+  const P = new Float32Array(frames * BINS), V = new Float32Array(frames * BINS);
+  const win = new Float64Array(NFFT); for (let i = 0; i < NFFT; i++) win[i] = .5 - .5 * Math.cos(TAU * i / NFFT);
+  const re = new Float64Array(NFFT), im = new Float64Array(NFFT);
+  let mx = -1e9;
+  for (let f = 0; f < frames; f++) {
+    for (let i = 0; i < NFFT; i++) { const j = f * HOP - NFFT / 2 + i; re[i] = j >= 0 && j < n ? x[j] * win[i] : 0; im[i] = 0; }
+    fft(re, im);
+    for (let b = 0; b < BINS; b++) { const p = re[b] * re[b] + im[b] * im[b]; P[f * BINS + b] = p; const d = 10 * Math.log10(p + 1e-9); V[f * BINS + b] = d; if (d > mx) mx = d; }
+  }
+  for (let i = 0; i < V.length; i++) V[i] = clamp((V[i] - (mx - 70)) / 70);
+  const img = toImage(frames, 256, (f, r) => Math.max(V[f * BINS + 512 - 2 * r], V[f * BINS + 511 - 2 * r]));
+  return sounds[name] = { x, P, V, frames, img, mel: {}, env: {} };
+}
+function getMel(S, nMel) {
+  if (S.mel[nMel]) return S.mel[nMel];
+  const fb = melFB(nMel), E = new Float32Array(S.frames * nMel); let mx = -1e9;
+  for (let f = 0; f < S.frames; f++) for (let m = 0; m < nMel; m++) {
+    let e = 0; for (const [b, wt] of fb.filters[m]) e += wt * S.P[f * BINS + b];
+    const d = 10 * Math.log10(e + 1e-9); E[f * nMel + m] = d; if (d > mx) mx = d;
+  }
+  const img = toImage(S.frames, nMel, (f, r) => (E[f * nMel + (nMel - 1 - r)] - (mx - 70)) / 70);
+  return S.mel[nMel] = { img, fb };
+}
+function waveEnv(x, width, store) { // keeps only the latest width, so resizing doesn't pile up arrays
+  if (store.n === width) return store.v;
+  const mn = new Float32Array(width), mxa = new Float32Array(width), per = x.length / width;
+  for (let i = 0; i < width; i++) {
+    let a = 1, b = -1; const e = Math.min(x.length, Math.floor((i + 1) * per));
+    for (let j = Math.floor(i * per); j < e; j++) { if (x[j] < a) a = x[j]; if (x[j] > b) b = x[j]; }
+    mn[i] = a; mxa[i] = b;
+  }
+  store.n = width; return store.v = { mn, mx: mxa, n: width };
+}
+function playBuffer(x, gain, onend) {
+  const buf = AC.createBuffer(1, x.length, SR); buf.getChannelData(0).set(x);
+  const src = AC.createBufferSource(), g = AC.createGain(); src.buffer = buf; g.gain.value = gain;
+  src.connect(g).connect(master); src.onended = onend; src.start();
+  return { t0: AC.currentTime, stop() { src.onended = null; try { src.stop(); } catch (e) {} } };
+}
+
+/* ───────── 07 : waveform vs spectrum ───────── */
+const N7 = [{ f: 262, c: C.a }, { f: 330, c: C.b }, { f: 392, c: C.c }, { f: 523, c: C.ok }];
+const tunes7 = {}; let rev7 = false, play7 = null;
+function tune7(rev) {
+  const key = rev ? 'r' : 'f'; if (tunes7[key]) return tunes7[key];
+  const order = rev ? [3, 2, 1, 0] : [0, 1, 2, 3], seg = SR / 2, x = new Float32Array(seg * 4);
+  order.forEach((ni, k) => {
+    for (let i = 0; i < seg; i++) { const tt = i / SR; x[k * seg + i] = .6 * Math.min(1, tt / .015) * Math.exp(-tt * 4.5) * Math.min(1, (.5 - tt) / .02) * Math.sin(TAU * N7[ni].f * tt); }
+  });
+  const M = 32768, re = new Float64Array(M), im = new Float64Array(M); re.set(x); fft(re, im);
+  const mag = new Float32Array(M / 2); let mx = 0;
+  for (let i = 0; i < M / 2; i++) { mag[i] = Math.hypot(re[i], im[i]); if (mag[i] > mx) mx = mag[i]; }
+  for (let i = 0; i < M / 2; i++) mag[i] /= mx;
+  return tunes7[key] = { x, mag, order, env: {} };
+}
+scene('c7', (ctx, w, h) => {
+  const T = tune7(rev7), stack = w < 560;
+  const A = stack ? { x: 22, y: 30, w: w - 26, h: h / 2 - 82 } : { x: 22, y: 30, w: w * .56 - 34, h: h - 92 };
+  const B = stack ? { x: 22, y: h / 2 + 30, w: w - 26, h: h / 2 - 82 } : { x: w * .56 + 26, y: 30, w: w * .44 - 30, h: h - 92 };
+  // waveform: x = time, y = air pressure
+  label(ctx, 'waveform', A.x, A.y - 20, C.text);
+  if (rev7) label(ctx, 'order flipped', A.x + A.w, A.y - 20, C.muted, 'right');
+  ylab(ctx, 'pressure', A.x - 12, A.y + A.h / 2);
+  label(ctx, 'time →', A.x + A.w / 2, A.y + A.h + 32, C.muted, 'center');
+  const env = waveEnv(T.x, Math.round(A.w), T.env), mid = A.y + A.h / 2;
+  line(ctx, A.x, A.y, A.x, A.y + A.h, C.line);
+  for (let s = 0; s < 4; s++) {
+    ctx.strokeStyle = N7[T.order[s]].c; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = Math.floor(s * env.n / 4); i < Math.floor((s + 1) * env.n / 4); i++) {
+      const x = A.x + i + .5; ctx.moveTo(x, mid - env.mx[i] * A.h * .8); ctx.lineTo(x, mid - env.mn[i] * A.h * .8 + .5);
+    }
+    ctx.stroke();
+    label(ctx, N7[T.order[s]].f + ' Hz', A.x + (s + .5) * A.w / 4, A.y + A.h + 14, N7[T.order[s]].c, 'center');
+  }
+  if (play7) { redraw('c7'); const u = (AC.currentTime - play7.t0) / 2; if (u <= 1) line(ctx, A.x + u * A.w, A.y, A.x + u * A.w, A.y + A.h, C.text, 1.5); } // animates only while playing
+  // spectrum: x = frequency, y = amplitude
+  label(ctx, 'spectrum', B.x, B.y - 20, C.text);
+  label(ctx, rev7 ? 'exactly the same' : 'order: lost', B.x + B.w, B.y - 20, rev7 ? C.a : C.muted, 'right');
+  ylab(ctx, 'amplitude', B.x - 12, B.y + B.h / 2);
+  const base = B.y + B.h, F0 = 200, F1 = 600, binHz = SR / 32768;
+  label(ctx, 'frequency (Hz) →', B.x + B.w / 2, base + 32, C.muted, 'center');
+  line(ctx, B.x, base, B.x + B.w, base, C.line); line(ctx, B.x, B.y, B.x, base, C.line);
+  for (let px = 0; px < B.w; px++) {
+    const fa = F0 + (F1 - F0) * px / B.w, fb = F0 + (F1 - F0) * (px + 1) / B.w;
+    let m = 0; for (let b = Math.floor(fa / binHz); b <= Math.ceil(fb / binHz); b++) m = Math.max(m, T.mag[b]);
+    if (m < .01) continue;
+    let col = C.muted; for (const nt of N7) if (Math.abs(nt.f - fa) < 30) col = nt.c;
+    ctx.fillStyle = col; ctx.fillRect(B.x + px, base - m * (B.h - 6), 1.2, m * (B.h - 6));
+  }
+  for (const nt of N7) { // each note as a solid bar, like every other spectrum on the page
+    let m = 0; for (let b = Math.floor((nt.f - 4) / binHz); b <= Math.ceil((nt.f + 4) / binHz); b++) m = Math.max(m, T.mag[b]);
+    ctx.fillStyle = nt.c; ctx.fillRect(B.x + (nt.f - F0) / (F1 - F0) * B.w - 4, base - m * (B.h - 6), 8, m * (B.h - 6));
+  }
+  for (const nt of N7) label(ctx, nt.f + '', B.x + (nt.f - F0) / (F1 - F0) * B.w, base + 14, nt.c, 'center');
+}, { live: false });
+$('rev7').onclick = e => { rev7 = !rev7; e.currentTarget.setAttribute('aria-pressed', rev7); stopAll(); redraw('c7'); };
+$('p7').onclick = e => { const b = e.currentTarget; toggle(b, () => { play7 = playBuffer(tune7(rev7).x, .7, () => { if (current && current.btn === b) stopAll(); }); redraw('c7'); const p = play7; return () => { p.stop(); play7 = null; redraw('c7'); }; }); };
+
+/* ───────── 08 : spectrogram ───────── */
+let snd = 'voice', nMel = 40;
+const RATE = .4, sg = { t0: nowS(), held: null, audio: null, drag: false, geom: null };
+function sgTime(now) {
+  if (sg.held != null) return sg.held;
+  if (sg.audio != null) return clamp(AC.currentTime - sg.audio, 0, DUR);
+  if (RM) return DUR * .6; // reduced motion: no auto-scrub, rest on a fixed slice
+  const cyc = DUR / RATE + 2.5; return Math.min(DUR, (((now - sg.t0) % cyc) + cyc) % cyc * RATE);
+}
+function setSnd(s) { snd = s; document.querySelectorAll('.snd').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === s)); stopAll(); sg.t0 = nowS(); sg.held = null; redraw('c9w', 'c9c'); }
+document.querySelectorAll('.snd').forEach(b => b.onclick = () => setSnd(b.dataset.s)); setSnd(snd);
+
+scene('c8', (ctx, w, h, now) => {
+  const S = getSound(snd), t = sgTime(now), narrow = w < 560;
+  const L = 46, PW = narrow ? 60 : 124, gap = 14, X0 = L, X1 = w - PW - gap, XW = X1 - X0, PX = X1 + gap;
+  const WY = 24, WH = 64, SY = WY + WH + 36, SH = h - SY - 40;
+  sg.geom = { X0, XW };
+  const xt = X0 + XW * t / DUR, f = Math.min(S.frames - 1, Math.round(t * SR / HOP));
+  // ① slice of the waveform: x = time, y = air pressure
+  parts(ctx, [['1 ', C.a], ['cut a short slice', C.text]], X0, 10);
+  ylab(ctx, 'pressure', 8, WY + WH / 2);
+  const env = waveEnv(S.x, Math.round(XW), S.env), wm = WY + WH / 2;
+  ctx.strokeStyle = 'rgba(236,232,223,.5)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 0; i < env.n; i++) { const x = X0 + i + .5; ctx.moveTo(x, wm - env.mx[i] * WH * .85); ctx.lineTo(x, wm - env.mn[i] * WH * .85 + .5); }
+  ctx.stroke();
+  const bw = Math.max(10, XW * NFFT / SR / DUR);
+  ctx.fillStyle = 'rgba(255,180,84,.2)'; ctx.fillRect(xt - bw / 2, WY - 3, bw, WH + 6);
+  ctx.strokeStyle = C.a; ctx.lineWidth = 1.5; ctx.strokeRect(xt - bw / 2, WY - 3, bw, WH + 6);
+  line(ctx, xt, WY + WH + 3, xt, SY, 'rgba(255,180,84,.6)', 1, DASH);
+  // ③ spectrogram: x = time, y = frequency, colour = amplitude
+  parts(ctx, [['3 ', C.a], ['paint it as a column', C.text]], X0, SY - 12);
+  ctx.fillStyle = C.dark; ctx.fillRect(X0, SY, XW, SH);
+  ctx.imageSmoothingEnabled = true;
+  if (f > 0) ctx.drawImage(S.img, 0, 0, f + 1, 256, X0, SY, XW * (f + 1) / S.frames, SH);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(X0 - .5, SY - .5, XW + 1, SH + 1);
+  ctx.strokeStyle = C.text; ctx.lineWidth = 1; ctx.strokeRect(xt - 2, SY - 1, 4, SH + 2);
+  ylab(ctx, 'frequency', 8, SY + SH / 2);
+  for (let k = 0; k <= 8; k += 2) label(ctx, k === 8 ? '8k Hz' : k ? k + 'k' : '0', X0 - 6, SY + SH - k / 8 * SH + (k === 8 ? 5 : k === 0 ? -5 : 0), C.muted, 'right');
+  for (let s = 0; s <= DUR; s++) label(ctx, s + ' s', X0 + XW * s / DUR, SY + SH + 12, C.muted, s === 0 ? 'left' : s === DUR ? 'right' : 'center');
+  cbar(ctx, X1, h - 8);
+  // ② this slice's spectrum, turned on its side: x = amplitude, y = frequency
+  parts(ctx, [['2 ', C.a], ['transform', C.text]], narrow ? w - 2 : PX, SY - 12, narrow ? 'right' : 'left'); // 73 px: wider than the narrow side panel, so it hangs from the right edge there
+  line(ctx, PX, SY, PX, SY + SH, C.line);
+  for (let y = 0; y < SH; y += 2) {
+    const v = S.V[f * BINS + Math.round((1 - y / SH) * (BINS - 1))];
+    if (v > .02) { ctx.fillStyle = LUTC[Math.round(v * 255)]; ctx.fillRect(PX + 1, SY + y, v * (PW - 6), 2); }
+  }
+  label(ctx, narrow ? 'amplitude' : 'amplitude →', PX, SY + SH + 12, C.muted);
+  line(ctx, xt + 3, SY, PX, SY, GUIDE, 1, DASH); line(ctx, xt + 3, SY + SH, PX, SY + SH, GUIDE, 1, DASH);
+});
+const cv8 = $('c8');
+function scrub(e) { const r = cv8.getBoundingClientRect(), g = sg.geom; sg.held = clamp((e.clientX - r.left - g.X0) / g.XW) * DUR; }
+cv8.addEventListener('pointerdown', e => { if (!sg.geom) return; stopAll(); sg.drag = true; cv8.setPointerCapture(e.pointerId); scrub(e); });
+cv8.addEventListener('pointermove', e => { if (sg.drag) scrub(e); });
+const resume8 = () => { if (RM || sg.held == null) return; sg.t0 = nowS() - sg.held / RATE; sg.held = null; }; // under reduced motion the slice stays where it was put
+const endDrag = () => { if (!sg.drag) return; sg.drag = false; resume8(); };
+cv8.addEventListener('pointerup', endDrag); cv8.addEventListener('pointercancel', endDrag);
+cv8.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  e.preventDefault(); const at = sgTime(nowS()); if (sg.audio != null) stopAll();
+  sg.held = clamp((at + (e.key === 'ArrowRight' ? .1 : -.1)) / DUR) * DUR;
+});
+cv8.addEventListener('blur', () => { if (!sg.drag) resume8(); });
+$('p8').onclick = e => { const b = e.currentTarget; toggle(b, () => {
+  const p = playBuffer(getSound(snd).x, .7, () => { if (current && current.btn === b) stopAll(); }); sg.audio = p.t0; sg.held = null;
+  return () => { const at = clamp(AC.currentTime - sg.audio, 0, DUR); sg.audio = null; sg.t0 = nowS() - at / RATE; if (RM) sg.held = at; p.stop(); };
+}); };
+
+/* ───────── 09 : mel ───────── */
+function oneShotStart(o, t, dur) { // a self-ending sound that stopAll() can still cut short
+  o.onended = () => { if (oneShot === o) { oneShot = null; ST9.row = null; redraw('c9s'); } };
+  o.start(t); o.stop(t + dur); oneShot = o;
+}
+function pair(fa, fb, g) {
+  stopAll(); ac(); const o = AC.createOscillator(), gg = AC.createGain(), t = AC.currentTime;
+  o.frequency.setValueAtTime(fa, t); o.frequency.setValueAtTime(fb, t + .5);
+  gg.gain.setValueAtTime(0, t); gg.gain.linearRampToValueAtTime(g, t + .02); gg.gain.setValueAtTime(g, t + .45); gg.gain.linearRampToValueAtTime(0, t + .49);
+  gg.gain.linearRampToValueAtTime(g, t + .52); gg.gain.setValueAtTime(g, t + .95); gg.gain.linearRampToValueAtTime(0, t + 1);
+  o.connect(gg).connect(master); oneShotStart(o, t, 1.05);
+}
+$('lo9').onclick = () => pair(300, 600, .25); $('hi9').onclick = () => pair(5000, 5300, .1);
+const TICKS = [0, 1000, 2000, 4000, 8000], tk = f => f >= 1000 ? f / 1000 + 'k' : f + '';
+const num = v => Math.round(v).toLocaleString('en-US');
+
+// two staircases: equal steps in Hz vs equal steps in mel
+const ST9 = { hz: [], mel: [], row: null, t0: 0, D: .24, N: 16 };
+for (let i = 0; i < ST9.N; i++) { ST9.hz.push(400 + i * 500); ST9.mel.push(Math.round(mel2hz(hz2mel(400) + i * (hz2mel(7900) - hz2mel(400)) / (ST9.N - 1)))); }
+function stair(row) {
+  stopAll(); ac();
+  const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime + .03, D = ST9.D;
+  g.gain.setValueAtTime(0, t);
+  ST9[row].forEach((f, i) => {
+    const a = t + i * D, lv = f > 3000 ? .09 : .2;
+    o.frequency.setValueAtTime(f, a); g.gain.setValueAtTime(0, a); g.gain.linearRampToValueAtTime(lv, a + .02); g.gain.setValueAtTime(lv, a + D - .06); g.gain.linearRampToValueAtTime(0, a + D - .02);
+  });
+  o.connect(g).connect(master); oneShotStart(o, t, ST9.N * D + .05); ST9.row = row; ST9.t0 = t; redraw('c9s');
+}
+$('st9hz').onclick = () => stair('hz'); $('st9mel').onclick = () => stair('mel');
+scene('c9s', (ctx, w, h) => {
+  const narrow = w < 560, L = 14, R = w - 14, X = f => L + f / FMAX * (R - L), ax = h - 24;
+  const act = ST9.row && AC ? Math.floor((AC.currentTime - ST9.t0) / ST9.D) : -1;
+  if (ST9.row) redraw('c9s'); // animates only while a staircase plays
+  line(ctx, L, ax, R, ax, C.line);
+  for (let f = 0; f <= FMAX; f += 2000) { line(ctx, X(f), ax, X(f), ax + 4, C.muted); label(ctx, tk(f) + (f === FMAX ? ' Hz' : ''), X(f), ax + 13, C.muted, f === 0 ? 'left' : f === FMAX ? 'right' : 'center'); }
+  const row = (key, y, col, title) => {
+    label(ctx, title, L, y - 22, col);
+    line(ctx, X(ST9[key][0]), y, X(ST9[key][ST9.N - 1]), y, C.line);
+    ST9[key].forEach((f, i) => {
+      const on = ST9.row === key && act === i;
+      line(ctx, X(f), y, X(f), ax, GUIDE, 1, DASH);
+      if (on) { ctx.beginPath(); ctx.arc(X(f), y, 12, 0, TAU); ctx.fillStyle = 'rgba(236,232,223,.18)'; ctx.fill(); }
+      dot(ctx, X(f), y, on ? 7.5 : narrow ? 3.5 : 4.5, col);
+    });
+  };
+  row('hz', 44, C.a, 'equal Hz steps (+500 Hz)'); row('mel', 108, C.b, 'equal mel steps');
+}, { live: false });
+
+// the mel ruler: Hz in, mel out
+const fq9 = $('fq9');
+function updFq() { const f = +fq9.value; $('fq9o').textContent = `${num(f)} Hz = ${num(hz2mel(f))} mel`; redraw('c9m'); }
+fq9.oninput = updFq; updFq();
+scene('c9m', (ctx, w, h) => {
+  const narrow = w < 560, L = 60, R = w - 14, top = 14, bot = h - 40;
+  const X = f => L + f / FMAX * (R - L), Y = m => bot - m / MMAX * (bot - top);
+  ylab(ctx, 'mel', 8, (top + bot) / 2);
+  label(ctx, 'frequency (Hz) →', (L + R) / 2, h - 8, C.muted, 'center');
+  line(ctx, L, top, L, bot, C.line); line(ctx, L, bot, R, bot, C.line);
+  for (let f = 0; f <= FMAX; f += 2000) { line(ctx, X(f), bot, X(f), bot + 4, C.muted); label(ctx, tk(f), X(f), bot + 13, C.muted, f === FMAX ? 'right' : 'center'); }
+  for (let k = 0; k <= 8; k++) {
+    const m = k * MMAX / 8, f = mel2hz(m);
+    if (k % 4 === 0) label(ctx, num(m), L - 6, Y(m) + (k === 8 ? 5 : k === 0 ? -5 : 0), C.muted, 'right');
+    if (!k) continue;
+    line(ctx, L, Y(m), X(f), Y(m), 'rgba(92,200,242,.45)', 1, DASH); line(ctx, X(f), Y(m), X(f), bot, 'rgba(92,200,242,.45)', 1, DASH);
+    ctx.fillStyle = C.b; ctx.fillRect(X(f) - 1.5, bot - 4, 3, 8);
+  }
+  const half = mel2hz(MMAX / 2);
+  ctx.fillStyle = 'rgba(92,200,242,.35)'; ctx.fillRect(L, bot - 3, X(half) - L, 6);
+  ctx.beginPath(); for (let x = L; x <= R; x++) { const f = (x - L) / (R - L) * FMAX, y = Y(hz2mel(f)); x === L ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+  ctx.strokeStyle = C.a; ctx.lineWidth = LW; ctx.lineJoin = 'round'; ctx.stroke();
+  const f = +fq9.value, m = hz2mel(f);
+  line(ctx, X(f), bot, X(f), Y(m), C.text, 1); line(ctx, L, Y(m), X(f), Y(m), C.text, 1);
+  label(ctx, 'half the ruler: 0 to ' + num(half) + ' Hz', narrow ? R : X(half) + 10, bot - 16, C.b, narrow ? 'right' : 'left'); // after the crosshair, so it never strikes through the text
+  dot(ctx, X(f), Y(m), 5.5, C.a);
+  label(ctx, num(m) + ' mel', X(f) > R - 80 ? X(f) - 10 : X(f) + 10, Y(m) + (m > MMAX * .9 ? 14 : -12), C.text, X(f) > R - 80 ? 'right' : 'left'); // the Hz value is on the slider readout
+}, { live: false });
+
+// using the ruler on one slice: 513 bars → a few dozen mel buckets
+const nm9 = $('nm9'), sb9 = $('sb9');
+let wantBand = +sb9.value || 8; // the band the user picked, so it comes back when the band count goes up again
+function upd9() {
+  nMel = +nm9.value || 40; $('o9').textContent = nMel; const n9 = $('n9'); if (n9) n9.textContent = nMel;
+  sb9.max = nMel; sb9.value = Math.min(wantBand, nMel); $('sb9o').textContent = sb9.value;
+  redraw('c9w', 'c9c');
+}
+nm9.oninput = upd9; sb9.oninput = () => { wantBand = +sb9.value; upd9(); }; upd9();
+let b9key = '', b9 = null;
+function band9() {
+  const key = snd + ':' + nMel; if (key === b9key) return b9;
+  const S = getSound(snd), fr = Math.round(S.frames * .56), binHz = SR / NFFT;
+  const bins = new Float32Array(BINS), box = new Float32Array(nMel), cnt = new Uint16Array(nMel), edges = []; let mx = -1e9;
+  for (let i = 0; i <= nMel; i++) edges.push(mel2hz(MMAX * i / nMel));
+  for (let b = 0; b < BINS; b++) { bins[b] = 10 * Math.log10(S.P[fr * BINS + b] + 1e-9); if (bins[b] > mx) mx = bins[b]; }
+  for (let m = 0; m < nMel; m++) {
+    let sum = 0, n = 0;
+    for (let b = Math.max(1, Math.ceil(edges[m] / binHz)); b < BINS && b * binHz < edges[m + 1]; b++) { sum += S.P[fr * BINS + b]; n++; }
+    if (!n) { sum = S.P[fr * BINS + clamp(Math.round((edges[m] + edges[m + 1]) / 2 / binHz), 1, BINS - 1)]; n = 1; }
+    cnt[m] = n; box[m] = 10 * Math.log10(sum / n + 1e-9);
+  }
+  const nrm = d => clamp((d - (mx - 60)) / 60);
+  for (let b = 0; b < BINS; b++) bins[b] = nrm(bins[b]);
+  for (let m = 0; m < nMel; m++) box[m] = nrm(box[m]);
+  b9key = key; return b9 = { bins, box, cnt, edges };
+}
+let a9key = '', a9t = 0;
+scene('c9w', (ctx, w, h, t) => {
+  const L = 24, W = w - L - 12, top = 26, baseY = 112, fy0 = 132, fy1 = 198, bBase = 262, bH = 56;
+  const D = band9(), e = D.edges, sel = clamp(+sb9.value, 1, nMel) - 1, binHz = SR / NFFT;
+  const xl = f => L + f / FMAX * W, xm = f => L + hz2mel(f) / MMAX * W;
+  const ak = snd + ':' + nMel + ':' + sel; if (ak !== a9key) { a9key = ak; a9t = t; }
+  const k = RM ? 1 : clamp((t - a9t) / .25), ease = 1 - (1 - k) * (1 - k);
+  if (k < 1) redraw('c9w'); // keep painting until the ease-in finishes, then rest
+  label(ctx, 'one slice: 513 bars', L, 10, C.text);
+  // bucket stripes on the Hz axis
+  for (let m = 0; m < nMel; m++) {
+    const x0 = xl(e[m]), x1 = xl(e[m + 1]);
+    if (m % 2) { ctx.fillStyle = 'rgba(236,232,223,.05)'; ctx.fillRect(x0, top, x1 - x0, baseY - top); }
+    if (m && x1 - x0 >= 3) line(ctx, x0, top, x0, baseY, 'rgba(236,232,223,.12)');
+  }
+  const sx0 = xl(e[sel]), sx1 = Math.max(sx0 + 2, xl(e[sel + 1]));
+  ctx.fillStyle = 'rgba(255,180,84,.16)'; ctx.fillRect(sx0, top, sx1 - sx0, baseY - top);
+  const bwid = Math.max(1, W / BINS);
+  let inSel = b => b * binHz >= e[sel] && b * binHz < e[sel + 1];
+  if (D.cnt[sel] === 1) { const lo = Math.max(1, Math.ceil(e[sel] / binHz)); const nb = lo * binHz < e[sel + 1] ? lo : clamp(Math.round((e[sel] + e[sel + 1]) / 2 / binHz), 1, BINS - 1); inSel = b => b === nb; }
+  for (let b = 1; b < BINS; b++) {
+    const v = D.bins[b]; if (v <= .01) continue;
+    ctx.fillStyle = inSel(b) ? C.a : 'rgba(236,232,223,.3)';
+    ctx.fillRect(xl(b * binHz) - bwid / 2, baseY - v * (baseY - top), bwid, v * (baseY - top));
+  }
+  ctx.strokeStyle = C.a; ctx.lineWidth = 1.5; ctx.strokeRect(sx0, top, sx1 - sx0, baseY - top);
+  line(ctx, L, baseY, L + W, baseY, C.line); line(ctx, L, bBase, L + W, bBase, C.line);
+  // mel bands: equal-width slots
+  const sw = W / nMel, gap = sw < 4 ? 0 : 1;
+  for (let m = 0; m < nMel; m++) {
+    const bh = Math.max(2, D.box[m] * bH) * (m === sel ? ease : 1);
+    ctx.fillStyle = m === sel ? C.a : 'rgba(92,200,242,.7)'; ctx.fillRect(L + m * sw, bBase - bh, sw - gap, bh);
+  }
+  // funnel: the selected bucket pours into its one bar
+  const bx0 = L + sel * sw, bx1 = L + (sel + 1) * sw - gap;
+  ctx.beginPath(); ctx.moveTo(sx0, fy0); ctx.lineTo(sx1, fy0); ctx.lineTo(bx1, fy1); ctx.lineTo(bx0, fy1); ctx.closePath();
+  ctx.fillStyle = `rgba(255,180,84,${.14 * ease})`; ctx.fill(); ctx.strokeStyle = 'rgba(255,180,84,.6)'; ctx.lineWidth = 1; ctx.stroke();
+  const n = D.cnt[sel], txt = `${n} bar${n === 1 ? '' : 's'} → 1`, mid = (sx0 + sx1 + bx0 + bx1) / 4;
+  // centre the label inside the funnel only when the funnel is wider than the text; otherwise sit beside it
+  const fwMid = ((sx1 - sx0) + (bx1 - bx0)) / 2, tw = txt.length * 6.7, rx = (sx1 + bx1) / 2 + 10;
+  if (fwMid > tw + 16) label(ctx, txt, mid, 165, C.a, 'center');
+  else if (rx + tw < L + W) label(ctx, txt, rx, 165, C.a, 'left');
+  else label(ctx, txt, (sx0 + bx0) / 2 - 10, 165, C.a, 'right');
+  for (const f of TICKS) {
+    const al = f === 0 ? 'left' : f === FMAX ? 'right' : 'center', u = f === FMAX ? ' Hz' : '';
+    line(ctx, xl(f), baseY, xl(f), baseY + 4, C.muted); label(ctx, tk(f) + u, xl(f), baseY + 11, C.muted, al);
+    line(ctx, xm(f), bBase, xm(f), bBase + 4, C.muted); label(ctx, tk(f) + u, xm(f), bBase + 11, C.muted, al);
+  }
+  label(ctx, `${nMel} mel bands`, L, h - 8, C.text);
+}, { live: false });
+{
+  const cv = $('c9w'), pick = ev => {
+    if (ev.type === 'pointermove' && ev.pointerType !== 'mouse') return;
+    const r = cv.getBoundingClientRect(), W = r.width - 36, u = clamp((ev.clientX - r.left - 24) / W);
+    const m = ev.clientY - r.top < 165 ? Math.floor(hz2mel(u * FMAX) / MMAX * nMel) : Math.floor(u * nMel);
+    const v = clamp(m, 0, nMel - 1) + 1; if (v !== +sb9.value) { wantBand = v; upd9(); }
+  };
+  cv.addEventListener('pointermove', pick); cv.addEventListener('pointerdown', pick);
+}
+scene('c9c', (ctx, w, h) => {
+  const S = getSound(snd), M = getMel(S, nMel), stack = w < 560, L = 46;
+  const pw = stack ? w - L - 4 : (w - 2 * L - 16) / 2, ph = stack ? h / 2 - 52 : h - 50;
+  const panel = (x, y, title, yl, yOf, drawImg) => {
+    label(ctx, title, x, y - 12, C.text);
+    ctx.fillStyle = LUTC[0]; ctx.fillRect(x, y, pw, ph);
+    drawImg(x, y);
+    for (const f of TICKS.slice(1, 4).concat(500)) {
+      const yy = y + ph - yOf(f) * ph;
+      line(ctx, x, yy, x + pw, yy, 'rgba(236,232,223,.22)', 1, DASH); label(ctx, tk(f), x - 5, yy, C.muted, 'right');
+    }
+    label(ctx, '8k Hz', x - 5, y + 5, C.muted, 'right');
+    ylab(ctx, yl, x - 38, y + ph / 2);
+    label(ctx, 'time →', x, y + ph + 12, C.muted);
+  };
+  panel(L, 24, 'spectrogram', 'Hz, evenly spaced', f => f / FMAX, (x, y) => { ctx.imageSmoothingEnabled = true; ctx.drawImage(S.img, x, y, pw, ph); });
+  panel(stack ? L : L + pw + 16 + L, stack ? h / 2 + 30 : 24, `mel spectrogram · ${nMel} bands`, 'Hz, mel-spaced', f => hz2mel(f) / MMAX, (x, y) => {
+    ctx.imageSmoothingEnabled = false;
+    const u = ph / (nMel + 1); // band centres sit half a band inside each edge, so the rows line up with the Hz gridlines
+    ctx.drawImage(M.img, x, y + u / 2, pw, ph - u); ctx.imageSmoothingEnabled = true;
+  });
+  cbar(ctx, stack ? L + pw : 2 * (L + pw) + 16, (stack ? h / 2 + 30 : 24) + ph + 12); // one colour key for both panels
+}, { live: false });
+
+/* ───────── 10 : live ───────── */
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = LUTC[0]; x.fillRect(0, 0, w, h); return c; };
+const live = { on: false, an: null, stream: null, src: null, lin: mk(320, 256), mel: mk(320, 64), td: null, fd: null, fb: null, maxBin: 0, pending: false, last: 0, acc: 0 };
+async function micStart() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  const an = AC.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = .3;
+  const src = AC.createMediaStreamSource(stream); src.connect(an);
+  const binHz = AC.sampleRate / an.fftSize;
+  Object.assign(live, { on: true, an, stream, src, td: new Float32Array(an.fftSize), fd: new Float32Array(an.frequencyBinCount), maxBin: Math.min(an.frequencyBinCount - 1, Math.floor(FMAX / binHz)), fb: melFilters(64, an.frequencyBinCount, binHz).filters });
+}
+function micStop() { if (live.stream) live.stream.getTracks().forEach(t => t.stop()); if (live.src) live.src.disconnect(); live.on = false; }
+$('mic').onclick = async e => {
+  const b = e.currentTarget, msg = $('micmsg');
+  if (live.on) { micStop(); b.textContent = 'Turn on mic'; b.classList.remove('on'); msg.textContent = 'nothing is recorded'; return; }
+  if (live.pending) return; // the permission prompt is still open
+  live.pending = true; ac(); // inside the click, so Safari lets the audio context run
+  try { await micStart(); b.textContent = '■ Stop'; b.classList.add('on'); msg.textContent = 'listening · nothing is recorded'; }
+  catch (err) { msg.textContent = 'No mic here. Try Chrome or Safari and allow the mic.'; }
+  finally { live.pending = false; }
+};
+function pushColumn(cv, n, valueOf) {
+  const c = cv.getContext('2d'); c.drawImage(cv, -1, 0);
+  const id = cv._id || (cv._id = c.createImageData(1, n));
+  for (let r = 0; r < n; r++) { const v = Math.round(clamp(valueOf(r)) * 255); id.data[r * 4] = LUT[v * 3]; id.data[r * 4 + 1] = LUT[v * 3 + 1]; id.data[r * 4 + 2] = LUT[v * 3 + 2]; id.data[r * 4 + 3] = 255; }
+  c.putImageData(id, cv.width - 1, 0);
+}
+scene('c10', (ctx, w, h, t) => {
+  const stack = w < 560, g = 16, top = 22;
+  const cw = stack ? w : (w - g) / 2, rh = stack ? [100, 100, (h - 200 - 4 * top - 3 * 6) / 2] : [110, 110, h - 110 - 2 * top - g];
+  const P = stack
+    ? [[0, top, cw, rh[0]], [0, 2 * top + rh[0] + 6, cw, rh[1]], [0, 3 * top + rh[0] + rh[1] + 12, cw, rh[2]], [0, 4 * top + rh[0] + rh[1] + rh[2] + 18, cw, rh[2]]]
+    : [[0, top, cw, rh[0]], [cw + g, top, cw, rh[1]], [0, 2 * top + rh[0] + g, cw, rh[2]], [cw + g, 2 * top + rh[0] + g, cw, rh[2]]];
+  const titles = ['waveform', 'spectrum', 'spectrogram', 'mel spectrogram'];
+  const ax = ['time · pressure', 'frequency · amplitude', 'time · frequency', 'time · mel']; // x · y, short enough for a half-width panel
+  if (live.on) {
+    live.an.getFloatTimeDomainData(live.td); live.an.getFloatFrequencyData(live.fd);
+    const fd = live.fd;
+    // 60 columns a second whatever the display's refresh rate
+    live.acc += Math.min(.1, t - (live.last || t)); live.last = t;
+    const cols = Math.min(4, Math.round(live.acc * 60)); live.acc -= cols / 60;
+    for (let c = 0; c < cols; c++) {
+      pushColumn(live.lin, 256, r => (fd[Math.round((1 - r / 255) * live.maxBin)] + 100) / 70);
+      pushColumn(live.mel, 64, r => { let e = 0; for (const [b, wt] of live.fb[63 - r]) e += wt * Math.pow(10, fd[b] / 10); return (10 * Math.log10(e + 1e-12) + 100) / 70; });
+    }
+  } else live.last = 0;
+  P.forEach(([x, y, pw, ph], i) => {
+    parts(ctx, [[titles[i], C.text], ['  ' + ax[i], C.muted]], x, y - 11);
+    ctx.fillStyle = i < 2 ? C.dark : LUTC[0]; ctx.fillRect(x, y, pw, ph);
+    if (i === 0) {
+      line(ctx, x, y + ph / 2, x + pw, y + ph / 2, C.line);
+      if (live.on) plot(ctx, u => clamp(live.td[Math.floor(u * 1023)] * 3, -1, 1), x, x + pw, y + ph / 2, ph / 2 - 4, C.a, LW);
+    } else if (i === 1) {
+      if (live.on) {
+        ctx.beginPath(); ctx.moveTo(x, y + ph);
+        for (let px = 0; px <= pw; px++) ctx.lineTo(x + px, y + ph - clamp((live.fd[Math.round(px / pw * live.maxBin)] + 100) / 70) * (ph - 4));
+        ctx.lineTo(x + pw, y + ph); ctx.closePath(); ctx.fillStyle = 'rgba(255,180,84,.35)'; ctx.fill(); ctx.strokeStyle = C.a; ctx.lineWidth = LW_THIN; ctx.stroke();
+      }
+      label.bg = C.dark; label(ctx, '0', x + 4, y + ph - 8, C.muted); label(ctx, '8k Hz', x + pw - 4, y + ph - 8, C.muted, 'right'); label.bg = null;
+    } else {
+      ctx.imageSmoothingEnabled = i === 2; ctx.drawImage(i === 2 ? live.lin : live.mel, x, y, pw, ph); ctx.imageSmoothingEnabled = true;
+    }
+  });
+  if (!live.on) { label.bg = C.dark; label(ctx, 'waiting for the mic', P[0][0] + P[0][2] / 2, P[0][1] + P[0][3] / 2, C.muted, 'center'); label.bg = null; } // once, not once per panel
+});
+
+/* ───────── rail ───────── */
+const rail = $('rail'), secs = [...document.querySelectorAll('.step')];
+secs.forEach((s, i) => { const a = document.createElement('a'); a.href = '#' + s.id; a.textContent = String(i + 1).padStart(2, '0'); a.setAttribute('aria-label', 'Step ' + (i + 1) + ': ' + s.querySelector('h2').textContent); rail.appendChild(a); });
+const railIO = new IntersectionObserver(es => {
+  for (const e of es) if (e.isIntersecting) [...rail.children].forEach((a, i) => { const on = secs[i] === e.target; a.classList.toggle('cur', on); on ? a.setAttribute('aria-current', 'step') : a.removeAttribute('aria-current'); });
+}, { rootMargin: '-45% 0px -45% 0px' });
+secs.forEach(s => railIO.observe(s));
+
+setTimeout(() => getSound('voice'), 400);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
